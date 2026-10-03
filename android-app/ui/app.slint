@@ -1,0 +1,170 @@
+// ============================================================================
+// app.slint —— 根窗口：只做「装配」，不做业务
+//
+//     AppWindow
+//      ├─ 内容区（按 AppState.current-tab 三选一）
+//      │    ├─ HomeScreen      工具页（screens/home_screen.slint）
+//      │    ├─ LogsScreen      日志页（screens/logs_screen.slint）
+//      │    └─ SettingsScreen  设置页（screens/settings_screen.slint）
+//      └─ NavigationBar        底部导航栏（components/navigation_bar.slint）
+//
+// 旧版把两个页面、选择栏、参数表单、操作栏、弹窗全写在这一个文件里
+// （1250 行），用户吐槽「感觉都是一个界面的累加」。现在这个文件只剩：
+//   * 字体注册（import .otf）与全局字体族
+//   * 主题注入入口（Theme global，Rust 侧 set）
+//   * 页面切换 + 底部导航栏
+// 每个页面自己的布局、状态、子组件都在各自的文件里。
+//
+// 依赖结构（单向，无环）：
+//     app.slint ─┬─ screens/*    ─┬─ components/*
+//                ├─ components/* ─┴─ theme/widgets.slint
+//                └─ state.slint / theme/palette.slint
+// ============================================================================
+
+import { Theme, ThemeColors } from "theme/palette.slint";
+import { AppState } from "state.slint";
+import { HomeScreen } from "screens/home_screen.slint";
+import { LogsScreen } from "screens/logs_screen.slint";
+import { SettingsScreen } from "screens/settings_screen.slint";
+import { NavigationBar } from "components/navigation_bar.slint";
+import { CommandItem, ParamField, ColorPreset } from "models.slint";
+
+
+// ----------------------------------------------------------------------------
+// 公开 API re-export。
+//
+// Slint 的规则：只有从「主 .slint 文件」export 出去的 global / struct,
+// 才会出现在 Rust 生成代码的 `crate::ui` 模块里。子文件里 export 的
+// 只算文件私有。Rust 侧要用：
+//   * window.global::<AppState>() / window.global::<Theme>()
+//   * window.global::<Palette>() —— 官方 std-widgets 的配色 global，
+//     Rust 侧用它驱动官方组件的明暗模式（set color-scheme）
+//   * ui::ThemeColors（自绘部分的颜色角色结构，仅 slint 内部构造）
+//   * ui::CommandItem / ui::ParamField（构造列表模型）
+// 所以这里必须再 export 一遍。
+// ----------------------------------------------------------------------------
+export { Theme, AppState, ThemeColors, CommandItem, ParamField, ColorPreset }
+export { Palette } from "widgets/material/std-widgets.slint";
+export { Monet } from "widgets/monet.slint";
+
+// ----------------------------------------------------------------------------
+// 自带中文字体。
+//
+// 语法看起来像 import 一个组件，其实是 Slint 的字体注册机制：
+// 编译器看到 import 的文件名以 .ttf/.otf/.ttc 结尾时，就把它当成字体。
+//
+// 字体是 Noto Sans CJK SC 的子集，含 21090 个字形
+// （ASCII + 常用汉字 + 全角标点 + 符号）：
+//   1) 精简 ROM 缺 CJK 字体时，中文不会变成空白方块
+//   2) 开发机 fontconfig 没配好时，桌面调试也能看到字
+// 路径相对于本文件：ui/app.slint → ../fonts/...
+// ----------------------------------------------------------------------------
+import "../fonts/NotoSansSC-Regular.otf";
+
+export component AppWindow inherits Window {
+    title: "PvZ2 Toolkit";
+
+    // 默认字体族必须与 NotoSansSC-Regular.otf 的 name 表一致
+    // （"Noto Sans CJK SC"），否则 Rust 侧 set 进来的动态文本
+    // 会按默认的 "Roboto" 查字体，查不到就回退到不含 CJK 的兜底。
+    default-font-family: "Noto Sans CJK SC";
+
+    // ----------------------------------------------------------------------------
+    // ★ 窗口尺寸只给 preferred，绝不写死 width/height（v3 修复，重要）：
+    //
+    //   之前写死 width: 400px; height: 860px; —— 桌面调试机恰好也是
+    //   400x860，一切正常；但装到手机上，屏幕逻辑高度不足 860 的设备
+    //   （很常见）窗口底部整段溢出到屏幕外，表现就是「底部导航栏只剩
+    //   一半，下半部分没了」。三轮反馈都栽在这。
+    //
+    //   preferred 尺寸只影响初始请求；Android 上实际尺寸由 NativeActivity
+    //   的 surface 决定（后端收到 WindowResized 后回写窗口尺寸），
+    //   桌面上由窗口管理器决定。写死值与真机不符时就再也不会被修正。
+    //
+    //   注意：不能写成由子元素反推（会形成绑定环，1.13 起编译失败），
+    //   用常量 preferred 是官方推荐做法。
+    // ----------------------------------------------------------------------------
+    preferred-width: 400px;
+    preferred-height: 860px;
+
+    // ----------------------------------------------------------------------------
+    // 诊断属性：Rust 侧启动 2 秒后读取并写进日志页。
+    // 「底部导航栏被系统栏挡住」问题的排查数据就靠它：
+    //   * 窗口逻辑尺寸 ≠ 预期 → 窗口尺寸同步有问题
+    //   * safe-area = 0 而界面实际被系统栏遮住 → 后端 inset 上报断了
+    // ----------------------------------------------------------------------------
+    out property <length> dbg-safe-top: root.safe-area-insets.top;
+    out property <length> dbg-safe-bottom: root.safe-area-insets.bottom;
+
+    // ----------------------------------------------------------------------------
+    // 明暗模式桥接：官方组件的 Palette.color-scheme 由 Rust 侧驱动。
+    //
+    // Rust 侧解析「跟随系统 / 浅色 / 深色」，同时写入
+    //   * Theme.effective-dark（自绘部分读这个）
+    //   * Palette.color-scheme（官方 material 组件读这个，见下方转发导出）
+    // 两边共享同一个明暗状态，官方组件与自绘部分永远同步。
+    // （上面的 re-export 使 Rust 能拿到官方 Palette global 的句柄。）
+    // ----------------------------------------------------------------------------
+
+    background: Theme.current.surface;
+
+    // ============================================================================
+    // 安全区容器（Slint 1.15+ 的 Window.safe-area-insets，见官方移动开发指南）。
+    //
+    // targetSdk 35 起 Android 15 强制 edge-to-edge：窗口会铺满整块屏幕，
+    // 状态栏和系统手势条都压在应用内容上面 —— 表现就是「底部导航栏一半
+    // 被挡在最底下」。safe-area-insets 运行时给出四周必须避让的厚度
+    // （底部 = 手势条/虚拟按键高度，顶部 = 状态栏高度，随状态实时变化）。
+    //
+    // 做法：内容整体放进内缩的容器里；窗口背景仍然是 surface 色，
+    // 所以手势条区域显示的是纯色延伸，视觉上导航栏「坐」在它上面。
+    // ============================================================================
+    Rectangle {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: parent.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        background: Theme.current.surface;
+
+        VerticalLayout {
+            spacing: 0px;
+
+            // ====================================================================
+            // 内容区：三个页面三选一
+            //
+            // 用 if 而不是 visible：隐藏时不参与布局、不接事件，
+            // 切页时旧页整体销毁，回到页面就是干净的初始状态。
+            // ====================================================================
+            Rectangle {
+                vertical-stretch: 1;
+                background: Theme.current.surface;
+
+                if (AppState.current-tab == 0) : HomeScreen {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if (AppState.current-tab == 1) : LogsScreen {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if (AppState.current-tab == 2) : SettingsScreen {
+                    width: parent.width;
+                    height: parent.height;
+                }
+            }
+
+            // ====================================================================
+            // 底部导航栏（工具 / 日志 / 设置）
+            // ====================================================================
+            NavigationBar {
+                changed(t) => {
+                    AppState.current-tab = t;
+                    // 打开日志页即视为已读
+                    if (t == 1) {
+                        AppState.has-unread-logs = false;
+                    }
+                }
+            }
+        }
+    }
+}

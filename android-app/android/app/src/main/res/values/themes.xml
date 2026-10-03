@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  亮色主题。
+
+  NativeActivity 本身不绘制任何东西，这个主题的作用只有三个：
+    1) 决定启动画面（冷启动那一瞬间的白/黑屏）的背景色
+    2) 给 Slint 的 Skia 渲染器提供窗口背景
+    3) 让状态栏图标颜色与深色/浅色主题匹配
+
+  配色跟 Slint 侧的 MD3 调色板保持一致（种子色 #4C8B3C，草绿）。
+  windowBackground 用纯色而不是透明，避免 Slint 首帧渲染前看到黑屏。
+
+  ★ 为什么关掉 windowDrawsSystemBarBackgrounds（v2 修复）：
+    之前开着它 + 透明系统栏 = 窗口主动延伸到状态栏/手势条后面
+    （edge-to-edge）。targetSdk 35 在 Android 15 上还会平台级强制
+    edge-to-edge，而 Slint 的 android-activity 后端并不会把系统
+    inset 上报给 safe-area-insets（实测恒为 0），结果就是底部导航栏
+    被手势条压住一半。
+    关掉之后，NativeActivity 的 surface 会自动缩到系统栏以内 ——
+    无论后端是否上报 inset，交互元素都不可能被系统栏盖住。
+    代价只是系统栏区域显示系统默认色而不是应用延伸背景，
+    对工具类应用无所谓。
+
+  windowOptOutEdgeToEdgeEnforcement（API 35 属性）：退出 Android 15
+    的强制 edge-to-edge。低版本系统会忽略这个未知属性，无副作用；
+    本工程用 android-35 的 android.jar 做 aapt2 link，属性能正常编译。
+-->
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/window_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

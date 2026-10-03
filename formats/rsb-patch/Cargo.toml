@@ -1,0 +1,24 @@
+[package]
+name = "rsb-patch"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/rsb-patch"
+description = "PopCap RSBPatch container and VCDIFF encoder/decoder"
+keywords = ["popcap", "rsb", "patch", "vcdiff"]
+categories = ["compression", "encoding", "game-development"]
+
+[features]
+default = ["rsb"]
+rsb = ["dep:rsb-archive"]
+
+[dependencies]
+byteorder = "1.5.0"
+md-5 = "0.11.0"
+rsb-archive = { path = "../rsb-archive", optional = true }
+thiserror = "2.0.20"
+
+[package.metadata.docs.rs]
+all-features = true

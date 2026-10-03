@@ -1,0 +1,25 @@
+archive testnew.dz
+archive testnew1.dz
+basedir .
+file Image16b.bmp 1 dz
+file BMP\Image16.bmp 1 dz to 25%
+file BMP\Image16.bmp 1 dz from 25%
+file BMP\Image4.bmp 1 bzip
+file BMP\Image8.bmp 1 zlib
+file TXT\Text1.txt 1 copy
+file TXT\Text2.txt 1 zero
+file TXT\Text3.txt 1 dz
+
+options dz
+max_mem_usage -1
+use_combuf 0
+preprocess 1
+WinSize 16
+OffsetTableSize 8
+OffsetTables 3
+OffsetContexts 3
+RefLengthTableSize 7
+RefLengthTables 1
+RefOffsetTableSize 7
+RefOffsetTables 3
+BigMinMatch 15

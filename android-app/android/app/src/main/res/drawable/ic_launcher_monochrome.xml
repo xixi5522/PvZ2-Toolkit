@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 13+ 主题化图标（Monochrome）。
+
+  系统会用主题色给这个单色图形上色，所以这里只能有 alpha 通道有意义的部分 ——
+  填充色写什么都无所谓，关键是把叶子 + 网格的剪影表达清楚。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 叶子轮廓（用 evenOdd 挖空内部网格区域的话会太细，
+         这里直接实心叶子 + 网格留白，缩到 24dp 也认得出来） -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M54,30 C68,30 78,40 78,54 C78,68 68,78 54,78 C40,78 30,68 30,54 C30,40 40,30 54,30 Z M44,44 h7 v7 h-7 z M57,44 h7 v7 h-7 z M44,57 h7 v7 h-7 z M57,57 h7 v7 h-7 z" />
+
+    <!-- 叶柄 -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M52.5,76 h3 v14 h-3 z" />
+</vector>

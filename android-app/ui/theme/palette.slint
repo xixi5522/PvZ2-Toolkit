@@ -1,0 +1,82 @@
+// ============================================================================
+// palette.slint —— 自绘部分的主题门面：直接镜像 Monet
+//
+// 2.1 的架构：fork material 样式（widgets/material/）把官方组件的颜色
+// 数据源换成 Monet global（Rust 侧 material-color-utilities 从种子色
+// 算出的完整 MD3 tonal palette）。自绘骨架（导航栏/卡片/列表行…）
+// 不再「镜像官方 Palette」，而是**读同一个 Monet global** ——
+// 官方组件与自绘部分天然同源，官方组件会变色了，自绘跟着一起变。
+//
+//   * 「跟随系统」：Android 12+ 读系统 Material You 强调色当种子色
+//     （真·莫奈取色）；读不到时回退 Slint 默认强调色。
+//   * 「自定义」  ：设置页的预设色板 / 手输 hex 当种子色。
+//   * 明暗由 Rust 侧解析「跟随系统/浅色/深色」后写入 Monet.dark。
+// ============================================================================
+
+import { Monet } from "../widgets/monet.slint";
+
+// 主题色角色（Rust 不构造此结构；字段是 Monet 的自绘侧别名集合）
+export struct ThemeColors {
+    primary: brush,
+    on-primary: brush,
+    primary-container: brush,
+    on-primary-container: brush,
+    secondary: brush,
+    on-secondary: brush,
+    secondary-container: brush,
+    on-secondary-container: brush,
+    tertiary-container: brush,
+    on-tertiary-container: brush,
+    surface: brush,
+    on-surface: brush,
+    on-surface-variant: brush,
+    surface-container-low: brush,
+    surface-container: brush,
+    surface-container-high: brush,
+    surface-container-highest: brush,
+    outline: brush,
+    outline-variant: brush,
+    error: brush,
+    error-container: brush,
+    inverse-surface: brush,
+    inverse-on-surface: brush,
+}
+
+export global Theme {
+    // 兼容别名：自绘里沿用 effective-dark 判断（与 Monet.dark 同源）
+    in-out property <bool> effective-dark <=> Monet.dark;
+
+    // ---- 全局生效的一套（与官方组件同源：Monet）----
+    out property <ThemeColors> current: {
+        primary: Monet.primary,
+        on-primary: Monet.on-primary,
+        primary-container: Monet.primary-container,
+        on-primary-container: Monet.on-primary-container,
+        secondary: Monet.secondary,
+        on-secondary: Monet.on-secondary,
+        secondary-container: Monet.secondary-container,
+        on-secondary-container: Monet.on-secondary-container,
+        tertiary-container: Monet.tertiary-container,
+        on-tertiary-container: Monet.on-tertiary-container,
+        surface: Monet.surface,
+        on-surface: Monet.on-surface,
+        on-surface-variant: Monet.on-surface-variant,
+        surface-container-low: Monet.surface-container-low,
+        surface-container: Monet.surface-container,
+        surface-container-high: Monet.surface-container-high,
+        surface-container-highest: Monet.surface-container-highest,
+        outline: Monet.outline,
+        outline-variant: Monet.outline-variant,
+        error: Monet.error,
+        error-container: Monet.error-container,
+        inverse-surface: Monet.inverse-surface,
+        inverse-on-surface: Monet.inverse-on-surface,
+    };
+
+    // ---- 形状/尺寸令牌（M3E：大圆角容器 + 全圆控件混搭）----
+    out property <length> radius-card: 24px;       // 卡片 / 浮层
+    out property <length> radius-row: 16px;        // 列表行 / 内嵌小块
+    out property <length> radius-chip: 999px;      // 胶囊（全圆）
+    out property <length> nav-bar-height: 80px;    // 底部导航栏（MD3 规格）
+    out property <length> action-bar-height: 88px; // 工具页底部操作区
+}

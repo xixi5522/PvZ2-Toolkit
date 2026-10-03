@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  启动图标（前景层）。
+
+  用矢量图而不是 PNG 的理由：
+    - 不用引入任何二进制资源，apk 体积可控
+    - anydpi-v26 的自适应图标本来就要矢量
+    - 图标主体画在安全区（中心 66dp / 108dp）内，
+      这样圆形、方形、squircle 各种裁切形状都不会切到内容
+
+  图形语义：一片豌豆叶 + 一排数据格 —— 对应「植物」+「资源处理工具」
+  坐标系是 108x108（自适应图标标准画布）
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 叶子：主体轮廓 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 C68,30 78,40 78,54 C78,68 68,78 54,78 C40,78 30,68 30,54 C30,40 40,30 54,30 Z" />
+
+    <!-- 叶子里的网格：代表资源分包/图集 -->
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M44,44 h7 v7 h-7 z" />
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M57,44 h7 v7 h-7 z" />
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M44,57 h7 v7 h-7 z" />
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M57,57 h7 v7 h-7 z" />
+
+    <!-- 叶柄 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52.5,76 h3 v14 h-3 z" />
+</vector>

@@ -1,0 +1,21 @@
+[package]
+name = "compiled-text"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+categories = ["encoding", "compression", "game-development"]
+keywords = ["popcap", "compiled-text", "rijndael", "base64"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/compiled-text"
+description = "Reader and writer for PopCap encrypted Compiled Text files"
+
+[dependencies]
+base64 = "0.23.1"
+md-5 = "0.11.0"
+simple-rijndael = "0.3.2"
+smf-container = { path = "../smf-container" }
+thiserror = "2.0.20"
+
+[package.metadata.docs.rs]
+all-features = true

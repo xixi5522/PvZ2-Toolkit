@@ -1,0 +1,66 @@
+// ============================================================================
+// monet.slint —— Monet 引擎注入点（Material Design 3 动态色彩）
+//
+// 这是 fork material 样式的核心：官方 std-widgets 的颜色数据源是
+// 编译器内置的 SlintInternal（accent-color 只在 Android 后端被注入，
+// 且 surface 系角色永远不跟 accent —— 官方 baseline 的紫灰背景就是
+// 这么来的）。fork 之后我们把 MaterialPalette 的数据源换成这里的
+// Monet global，由 Rust 侧用 material-color-utilities（Google 官方
+// Monet 算法）从种子色算出**完整的 MD3 tonal palette**注入：
+//
+//   * 「跟随系统」= Android 12+ 读壁纸主色 / 系统 accent 当种子色
+//     （真正的 Material You 莫奈取色；桌面回退 Slint 默认强调色）
+//   * 「自定义」  = 用户在设置页选的种子色（预设色板或手输 hex）
+//
+// 字段名与 material-color-utilities 的 DynamicScheme 角色一一对应。
+// 全部 in-out：Rust 启动/切换主题时 set 一次，所有绑定自动刷新。
+// ============================================================================
+
+export global Monet {
+    // 明暗（Rust 按「跟随系统/浅色/深色」解析后写入）
+    in-out property <bool> dark: false;
+    // 官方组件的 ColorScheme 桥（fork 的 color-scheme.slint 读这里）
+    in-out property <ColorScheme> color-scheme: Monet.dark ? ColorScheme.dark : ColorScheme.light;
+
+    // ---- 种子色（仅用于设置页回显，功能性注入走下面各角色）----
+    in-out property <brush> seed: #6750A4;
+
+    // ---- Neutral（surface 系）----
+    in-out property <brush> surface;                  // 页面底
+    in-out property <brush> surface-dim;
+    in-out property <brush> surface-bright;
+    in-out property <brush> surface-container-lowest;
+    in-out property <brush> surface-container-low;    // 卡片
+    in-out property <brush> surface-container;        // 导航栏 / 浮层
+    in-out property <brush> surface-container-high;   // 弹窗菜单
+    in-out property <brush> surface-container-highest;// 输入框底
+    in-out property <brush> on-surface;               // 主文字
+    in-out property <brush> on-surface-variant;       // 次要文字
+    in-out property <brush> outline;                  // 描边
+    in-out property <brush> outline-variant;          // 分隔线
+    in-out property <brush> inverse-surface;
+    in-out property <brush> inverse-on-surface;
+
+    // ---- Primary ----
+    in-out property <brush> primary;
+    in-out property <brush> on-primary;
+    in-out property <brush> primary-container;
+    in-out property <brush> on-primary-container;
+
+    // ---- Secondary ----
+    in-out property <brush> secondary;
+    in-out property <brush> on-secondary;
+    in-out property <brush> secondary-container;
+    in-out property <brush> on-secondary-container;
+
+    // ---- Tertiary ----
+    in-out property <brush> tertiary;
+    in-out property <brush> tertiary-container;
+    in-out property <brush> on-tertiary-container;
+
+    // ---- Error ----
+    in-out property <brush> error;
+    in-out property <brush> on-error;
+    in-out property <brush> error-container;
+    in-out property <brush> on-error-container;
+}

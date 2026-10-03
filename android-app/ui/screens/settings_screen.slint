@@ -1,0 +1,582 @@
+// ============================================================================
+// settings_screen.slint —— 设置页
+//
+// 2.1 变化：
+//   * 「主题色」回归 —— 跟随系统莫奈取色（Material You）/ 12 个预设
+//     种子色 / 自定义 hex，由 Monet 引擎（material-color-utilities）
+//     生成完整 MD3 色板，官方组件与自绘部分同时换装；
+//   * 按钮全部官方 Button（primary / tonal 两档）；
+//   * 「开源与许可」区块（AGPL-3.0）与全屏「开源致谢 / 许可证」浮层。
+//
+// 整页用独立组件库（Card / Chip / InfoRow / OutlinedField）+ 官方组件搭出来。
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+import { AppState } from "../state.slint";
+import {
+    Card, SectionTitle, Chip, Divider, InfoRow, StatusDot, OutlinedField,
+} from "../theme/widgets.slint";
+import { Button, ScrollView } from "../widgets/material/std-widgets.slint";
+
+// 预设种子色的色点（选中时 on-surface 描边环）
+component PresetDot inherits Rectangle {
+    in property <string> dot-hex;
+    in property <brush> dot-brush;
+
+    width: 34px;
+    height: 34px;
+    border-radius: 17px;
+    background: dot-brush;
+    border-width: AppState.theme-color == root.dot-hex ? 2.5px : 0px;
+    border-color: Theme.current.on-surface;
+    animate border-width { duration: 120ms; }
+
+    TouchArea {
+        clicked => { AppState.set-theme-color(root.dot-hex); }
+        mouse-cursor: pointer;
+    }
+}
+
+export component SettingsScreen inherits Rectangle {
+    background: Theme.current.surface-container-low;
+
+    VerticalLayout {
+        spacing: 0px;
+
+        // ---- 页头 ----
+        Rectangle {
+            height: 54px;
+
+            Text {
+                x: 16px;
+                text: "设置";
+                color: Theme.current.on-surface;
+                font-size: 20px;
+                font-weight: 800;
+                vertical-alignment: center;
+            }
+        }
+
+        // ---- 内容滚动区 ----
+        ScrollView {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 16px;
+
+                // --- 关于 ---
+                Card {
+                    height: 96px;
+
+                    HorizontalLayout {
+                        padding: 16px;
+                        spacing: 14px;
+                        alignment: center;
+
+                        // 应用图标（主题色方块 + 字样）
+                        Rectangle {
+                            width: 56px;
+                            height: 56px;
+                            border-radius: 18px;
+                            background: Theme.current.primary;
+                            Text {
+                                text: "PvZ";
+                                color: Theme.current.on-primary;
+                                font-size: 17px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 3px;
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            Text {
+                                text: "PvZ2 Toolkit";
+                                color: Theme.current.on-surface;
+                                font-size: 17px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: "作者：" + AppState.author;
+                                color: Theme.current.on-surface-variant;
+                                font-size: 13px;
+                            }
+                            Text {
+                                text: "植物大战僵尸 2 资源工具集";
+                                color: Theme.current.on-surface-variant.with-alpha(0.75);
+                                font-size: 11px;
+                            }
+                        }
+                    }
+                }
+
+                // --- 外观 ---
+                SectionTitle { text: "外观"; }
+
+                Card {
+                    // ★ 余量 +48 而不是想当然的 +32：
+                    //   Noto Sans CJK 的实际行高比 preferred-height 估的要高，
+                    //   卡里小字 Text 多，累计能差出十来个像素。
+                    height: appearance-layout.preferred-height + 48px;
+
+                    appearance-layout := VerticalLayout {
+                        x: 16px;
+                        y: 16px;
+                        width: parent.width - 32px;
+                        spacing: 14px;
+
+                        // 明暗模式
+                        VerticalLayout {
+                            spacing: 8px;
+
+                            Text {
+                                text: "明暗模式";
+                                color: Theme.current.on-surface;
+                                font-size: 13px;
+                                font-weight: 600;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Chip {
+                                    text: "跟随系统";
+                                    active: AppState.theme-mode == "system";
+                                    clicked => { AppState.set-theme-mode("system"); }
+                                }
+                                Chip {
+                                    text: "浅色";
+                                    active: AppState.theme-mode == "light";
+                                    clicked => { AppState.set-theme-mode("light"); }
+                                }
+                                Chip {
+                                    text: "深色";
+                                    active: AppState.theme-mode == "dark";
+                                    clicked => { AppState.set-theme-mode("dark"); }
+                                }
+                            }
+
+                            Text {
+                                text: "当前：" + (Theme.effective-dark ? "深色" : "浅色");
+                                color: Theme.current.on-surface-variant.with-alpha(0.8);
+                                font-size: 11px;
+                            }
+                        }
+
+                        Divider { }
+
+                        // 主题色（Monet 取色引擎）
+                        VerticalLayout {
+                            spacing: 8px;
+
+                            Text {
+                                text: "主题色";
+                                color: Theme.current.on-surface;
+                                font-size: 13px;
+                                font-weight: 600;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Chip {
+                                    text: "跟随系统莫奈";
+                                    active: AppState.theme-color == "monet";
+                                    clicked => { AppState.set-theme-color("monet"); }
+                                }
+                            }
+
+                            if (AppState.theme-color == "monet") : Text {
+                                text: "Android 12+ 会从你的壁纸提取主色"
+                                    + "（Material You 动态取色），整个界面跟着换装。";
+                                color: Theme.current.on-surface-variant.with-alpha(0.8);
+                                font-size: 11px;
+                                wrap: word-wrap;
+                            }
+
+                            // 预设色板：点一下即以此色为种子生成整套配色。
+                            // 两行 × 6（34px × 12 个在 400dp 窄屏一行放不下），
+                            // 模型由 Rust 侧拆好注入。
+                            VerticalLayout {
+                                spacing: 10px;
+
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    for p in AppState.color-presets-row1 : PresetDot {
+                                        dot-hex: p.hex;
+                                        dot-brush: p.brush;
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    for p in AppState.color-presets-row2 : PresetDot {
+                                        dot-hex: p.hex;
+                                        dot-brush: p.brush;
+                                    }
+                                }
+                            }
+
+                            // 自定义 hex
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                OutlinedField {
+                                    horizontal-stretch: 1;
+                                    min-width: 120px;
+                                    label: "自定义";
+                                    placeholder: "#RRGGBB";
+                                    label-backdrop: Theme.current.surface-container;
+                                    text <=> AppState.custom-color-input;
+                                }
+
+                                Button {
+                                    text: "应用";
+                                    primary: true;
+                                    clicked => {
+                                        AppState.set-theme-color(AppState.custom-color-input);
+                                    }
+                                }
+                            }
+
+                            if (AppState.theme-color != "monet") : Text {
+                                text: "当前种子色：" + AppState.theme-color
+                                    + "（整套配色由 Monet 算法从它推导）";
+                                color: Theme.current.on-surface-variant.with-alpha(0.8);
+                                font-size: 11px;
+                            }
+                        }
+                    }
+                }
+
+                // --- 权限与存储 ---
+                SectionTitle { text: "权限与存储"; }
+
+                Card {
+                    height: perm-layout.preferred-height + 32px;
+
+                    perm-layout := VerticalLayout {
+                        x: 16px;
+                        y: 16px;
+                        width: parent.width - 32px;
+                        spacing: 12px;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            height: 22px;
+                            alignment: center;
+
+                            // 布局的交叉轴会把固定尺寸的小元素贴顶放，
+                            // 套一层撑满行高的容器再手动居中，点才跟文字对齐
+                            Rectangle {
+                                width: 8px;
+                                StatusDot {
+                                    y: (parent.height - self.height) / 2;
+                                    dot-color: AppState.storage-granted
+                                        ? Theme.current.primary : Theme.current.error;
+                                }
+                            }
+                            Text {
+                                text: AppState.storage-granted
+                                    ? "存储权限：已授予" : "存储权限：未授予";
+                                color: Theme.current.on-surface;
+                                font-size: 13px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Text {
+                            text: AppState.storage-status;
+                            color: Theme.current.on-surface-variant;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
+
+                        if (!AppState.storage-granted) : Button {
+                            text: "申请存储权限";
+                            primary: true;
+                            clicked => { AppState.request-storage-permission(); }
+                        }
+                    }
+                }
+
+                // --- 性能 ---
+                SectionTitle { text: "性能"; }
+
+                Card {
+                    height: perf-layout.preferred-height + 48px;
+
+                    perf-layout := VerticalLayout {
+                        x: 16px;
+                        y: 16px;
+                        width: parent.width - 32px;
+                        spacing: 10px;
+
+                        Text {
+                            text: "后台线程数";
+                            color: Theme.current.on-surface;
+                            font-size: 13px;
+                            font-weight: 600;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            for n in [0, 1, 2, 4, 8] : Chip {
+                                text: n == 0 ? "自动" : n;
+                                active: AppState.threads == n;
+                                clicked => { AppState.set-threads(n); }
+                            }
+                        }
+
+                        Text {
+                            text: "「自动」会按设备 CPU 核心数决定，通常够用。";
+                            color: Theme.current.on-surface-variant.with-alpha(0.8);
+                            font-size: 11px;
+                        }
+                    }
+                }
+
+                // --- 开源与许可（AGPL-3.0）---
+                SectionTitle { text: "开源与许可"; }
+
+                Card {
+                    height: oss-layout.preferred-height + 48px;
+
+                    oss-layout := VerticalLayout {
+                        x: 16px;
+                        y: 16px;
+                        width: parent.width - 32px;
+                        spacing: 10px;
+
+                        InfoRow {
+                            name: "许可证";
+                            value: "AGPL-3.0-or-later";
+                        }
+                        Divider { }
+                        InfoRow {
+                            name: "上游项目";
+                            value: "ed1ths-pvz-toolkit";
+                        }
+                        Divider { }
+                        InfoRow {
+                            name: "界面框架";
+                            value: "Slint (material)";
+                        }
+
+                        Text {
+                            text: "本应用是自由软件：你可以在 AGPL-3.0 许可证下使用、"
+                                + "研究、修改和再分发它。处理逻辑移植自 "
+                                + "LambdaEd1th/ed1ths-pvz-toolkit（AGPL-3.0）。";
+                            color: Theme.current.on-surface-variant;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
+
+                        Button {
+                            text: "开源致谢与许可证全文";
+                            clicked => { AppState.license-open = true; }
+                        }
+                    }
+                }
+
+                // --- 设备信息 ---
+                SectionTitle { text: "设备信息"; }
+
+                Card {
+                    height: info-layout.preferred-height + 32px;
+
+                    info-layout := VerticalLayout {
+                        x: 16px;
+                        y: 16px;
+                        width: parent.width - 32px;
+                        spacing: 10px;
+
+                        InfoRow {
+                            name: "应用版本";
+                            value: "2.1.0";
+                        }
+                        Divider { }
+                        InfoRow {
+                            name: "CPU 架构";
+                            value: AppState.device-abi;
+                        }
+                        Divider { }
+                        InfoRow {
+                            name: "数据目录";
+                            value: AppState.data-dir;
+                        }
+                    }
+                }
+
+                Button {
+                    text: "复制诊断信息";
+                    clicked => { AppState.copy-diagnostics(); }
+                }
+
+                Text {
+                    text: "PvZ2 Toolkit · " + AppState.author + " · AGPL-3.0";
+                    color: Theme.current.on-surface-variant.with-alpha(0.55);
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle { height: 8px; }
+            }
+        }
+    }
+
+    // ==========================================================================
+    // 全屏浮层：开源致谢 / 许可证全文（AGPL-3.0）
+    //
+    // 盖住整页（后声明者在上层）。打开时 ScrollView 顶部先看到致谢，
+    // 往下滚就是许可证全文 —— 「感谢界面」和「许可证全文」合成一页，
+    // 避免多一层导航。
+    // ==========================================================================
+    if (AppState.license-open) : Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Theme.current.surface-container-low;
+
+        VerticalLayout {
+            spacing: 0px;
+
+            // ---- 浮层页头 ----
+            Rectangle {
+                height: 54px;
+
+                Text {
+                    x: 16px;
+                    height: parent.height;
+                    text: "开源致谢";
+                    color: Theme.current.on-surface;
+                    font-size: 18px;
+                    font-weight: 800;
+                    vertical-alignment: center;
+                }
+
+                Button {
+                    x: parent.width - self.width - 12px;
+                    y: (parent.height - self.height) / 2;
+                    text: "关闭";
+                    clicked => { AppState.license-open = false; }
+                }
+            }
+
+            ScrollView {
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 14px;
+
+                    // ---- 致谢 ----
+                    SectionTitle { text: "特别感谢"; }
+
+                    Card {
+                        height: thanks-layout.preferred-height + 40px;
+
+                        thanks-layout := VerticalLayout {
+                            x: 16px;
+                            y: 16px;
+                            width: parent.width - 32px;
+                            spacing: 10px;
+
+                            Text {
+                                text: "LambdaEd1th / ed1ths-pvz-toolkit";
+                                color: Theme.current.on-surface;
+                                font-size: 14px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: "本应用的全部资源处理能力都移植自这个项目"
+                                    + "的 14 个格式库：RSB/RSGP 资源包、PTX 纹理、"
+                                    + "PAK、DZip 分卷、RTON、SMF、CompiledText、"
+                                    + "CryptData、Newton 清单、PAM 动画、Reanim、"
+                                    + "PopTray/effects 粒子、BNK 音频库与 WEM 音频。"
+                                    + "没有这些工作，就没有这个工具。";
+                                color: Theme.current.on-surface-variant;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+
+                            Divider { }
+
+                            Text {
+                                text: "Slint";
+                                color: Theme.current.on-surface;
+                                font-size: 14px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: "界面由 Slint 构建，使用官方 material "
+                                    + "(Material Design 3) 组件与动态取色。";
+                                color: Theme.current.on-surface-variant;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+
+                            Divider { }
+
+                            Text {
+                                text: "Noto Sans CJK SC";
+                                color: Theme.current.on-surface;
+                                font-size: 14px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: "界面内嵌的中文字体（SIL Open Font License）。";
+                                color: Theme.current.on-surface-variant;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    // ---- 许可证声明 ----
+                    SectionTitle { text: "许可证"; }
+
+                    Card {
+                        height: lic-note.preferred-height + 32px;
+
+                        lic-note := Text {
+                            x: 16px;
+                            y: 16px;
+                            width: parent.width - 32px;
+                            text: "PvZ2 Toolkit —— 基于 AGPL-3.0-or-later 授权。"
+                                + "本程序不含任何担保；如需完整许可文本，见下方全文。"
+                                + "您可以在遵守 GNU Affero 通用公共许可证第 3 版或"
+                                + "（由您选择的）任何后续版本的条件下重新分发和/或"
+                                + "修改本程序。";
+                            color: Theme.current.on-surface-variant;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    // ---- 许可证全文（Rust 侧 include_str! 注入）----
+                    SectionTitle { text: "GNU Affero 通用公共许可证 第 3 版"; }
+
+                    Card {
+                        height: lic-full.preferred-height + 32px;
+
+                        lic-full := Text {
+                            x: 16px;
+                            y: 16px;
+                            width: parent.width - 32px;
+                            text: AppState.license-text == ""
+                                ? "（许可证文本尚未加载）" : AppState.license-text;
+                            color: Theme.current.on-surface;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    Rectangle { height: 16px; }
+                }
+            }
+        }
+    }
+}

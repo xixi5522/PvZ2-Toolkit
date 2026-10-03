@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  非自适应图标的兜底（API < 26 或某些第三方启动器直接取 @mipmap/ic_launcher）。
+
+  没有 anydpi-v26 时 Android 会找到这个。做成「绿色圆角方块 + 白色叶子」的
+  单文件矢量图，跟自适应图标视觉上一致。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 背景圆角方块 -->
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M12,12 h84 a8,8 0 0 1 8,8 v68 a8,8 0 0 1 -8,8 h-84 a8,8 0 0 1 -8,-8 v-68 a8,8 0 0 1 8,-8 z" />
+
+    <!-- 叶子 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,28 C68,28 78,38 78,52 C78,66 68,76 54,76 C40,76 30,66 30,52 C30,38 40,28 54,28 Z" />
+
+    <!-- 网格 -->
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M43,42 h8 v8 h-8 z M57,42 h8 v8 h-8 z M43,56 h8 v8 h-8 z M57,56 h8 v8 h-8 z" />
+</vector>

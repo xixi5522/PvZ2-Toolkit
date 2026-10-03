@@ -1,0 +1,239 @@
+// ============================================================================
+// home_screen.slint —— 工具页（默认页）
+//
+// 结构（绝对定位，各区域互不挤压 —— 这是「看不到运行按钮」的正解）：
+//
+//     ┌────────────────────────────┐
+//     │ 页头：工具 · 当前功能名      │ 56px
+//     │ [功能选择胶囊 ▾]            │ 48px
+//     ├────────────────────────────┤
+//     │                            │
+//     │ 功能说明 + 参数表单（滚动）   │ ← 弹性区
+//     │                            │
+//     ├────────────────────────────┤
+//     │ 上次结果（一行）             │
+//     │ [    开始运行    ] [取消]    │ ← 操作栏，永远钉在底部导航栏之上
+//     └────────────────────────────┘
+//
+// 选择面板（PickerPanel）展开时以浮层形式盖住参数区，
+// 不挤占操作栏 —— 任何状态下运行按钮都在拇指能碰到的地方。
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+import { AppState } from "../state.slint";
+import { PickerBar, PickerPanel } from "../components/command_picker.slint";
+import { ParamForm } from "../components/param_form.slint";
+import { IconPlay } from "../components/icons.slint";
+import { Button, ProgressIndicator, ScrollView } from "../widgets/material/std-widgets.slint";
+
+export component HomeScreen inherits Rectangle {
+    background: Theme.current.surface-container-low;
+
+    // 布局常量
+    property <length> header-h: 54px;
+    property <length> picker-h: 48px;
+    property <length> action-h: 88px;
+
+    // ========================================================================
+    // 弹性区：功能说明 + 参数表单（选择面板展开时被浮层盖住即可，不参与）
+    // ========================================================================
+    Rectangle {
+        x: 0;
+        y: root.header-h + root.picker-h + 10px;
+        width: parent.width;
+        height: parent.height - root.header-h - root.picker-h - root.action-h - 10px;
+        background: transparent;
+
+        // ---- 未选功能：引导态 ----
+        if (AppState.selected-id == "") : VerticalLayout {
+            width: parent.width;
+            height: parent.height;
+            alignment: center;
+            spacing: 12px;
+
+            // 图标块：VerticalLayout 的子元素不能自己设 x，
+            // 用 HorizontalLayout 的 alignment 居中
+            HorizontalLayout {
+                height: 72px;
+                alignment: center;
+
+                Rectangle {
+                    width: 72px;
+                    height: 72px;
+                    border-radius: 24px;
+                    background: Theme.current.primary-container;
+
+                    IconPlay {
+                        width: 32px;
+                        height: 32px;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        icon-color: Theme.current.on-primary-container;
+                    }
+                }
+            }
+
+            Text {
+                text: "先选一个功能";
+                color: Theme.current.on-surface;
+                font-size: 17px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "点上面的「功能」胶囊，从列表里挑一个工具";
+                color: Theme.current.on-surface-variant;
+                font-size: 13px;
+                horizontal-alignment: center;
+            }
+        }
+
+        // ---- 已选功能：说明 + 参数表单 ----
+        if (AppState.selected-id != "") : ScrollView {
+            x: 0;
+            width: parent.width;
+            height: parent.height;
+
+            VerticalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 2px;
+                spacing: 12px;
+
+                // 功能说明（一条矮横幅，M3E 圆角，secondary-container 层次）
+                if (AppState.selected-desc != "") : Rectangle {
+                    height: desc-text.preferred-height + 20px;
+                    border-radius: Theme.radius-row;
+                    background: Theme.current.secondary-container;
+
+                    desc-text := Text {
+                        x: 12px;
+                        y: 10px;
+                        width: parent.width - 24px;
+                        text: AppState.selected-desc;
+                        color: Theme.current.on-secondary-container;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                    }
+                }
+
+                ParamForm { }
+            }
+        }
+    }
+
+    // ========================================================================
+    // 页头 + 选择胶囊
+    // ========================================================================
+    Text {
+        x: 16px;
+        y: 14px;
+        height: 24px;
+        text: "工具";
+        color: Theme.current.on-surface;
+        font-size: 20px;
+        font-weight: 800;
+        vertical-alignment: center;
+    }
+
+    if (AppState.selected-name != "") : Text {
+        x: 70px;
+        y: 14px;
+        width: parent.width - 86px;
+        height: 24px;
+        text: "· " + AppState.selected-name;
+        color: Theme.current.on-surface-variant;
+        font-size: 13px;
+        font-weight: 600;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    PickerBar {
+        x: 16px;
+        y: root.header-h + 2px;
+        width: parent.width - 32px;
+    }
+
+    // ========================================================================
+    // 选择面板浮层（展开时才存在；盖住参数区，不碰操作栏）
+    //
+    // ★ 点击顺序（Slint 后声明者在上层、先接事件）：
+    //   先声明「点空白收起」的透明命中层，再声明面板本体 ——
+    //   面板盖在命中层上面，面板范围内的点击归面板，
+    //   范围外的点击落到透明层上，收起面板。
+    // ========================================================================
+    if (AppState.open-select == "@picker") : TouchArea {
+        y: root.header-h + root.picker-h + 6px;
+        width: parent.width;
+        height: parent.height - root.header-h - root.picker-h - root.action-h - 14px;
+        clicked => { AppState.open-select = ""; }
+    }
+
+    if (AppState.open-select == "@picker") : PickerPanel {
+        x: 10px;
+        y: root.header-h + root.picker-h + 6px;
+        width: parent.width - 20px;
+        height: parent.height - root.header-h - root.picker-h - root.action-h - 14px;
+    }
+
+    // ========================================================================
+    // 操作栏（永远可见：结果行 + 运行按钮）
+    // ========================================================================
+    Rectangle {
+        x: 0;
+        y: parent.height - root.action-h;
+        width: parent.width;
+        height: root.action-h;
+        background: Theme.current.surface-container;
+        border-radius: 20px;
+        // 只圆上角：底部被导航栏裁齐
+        border-bottom-left-radius: 0px;
+        border-bottom-right-radius: 0px;
+
+        VerticalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 8px;
+            padding-bottom: 10px;
+            spacing: 6px;
+
+            // 最近一次输出摘要（一行，长了省略）
+            if (AppState.last-result != "") : Text {
+                height: 14px;
+                text: (AppState.last-ok ? "✓ " : "✗ ") + AppState.last-result;
+                color: AppState.last-ok ? Theme.current.primary : Theme.current.error;
+                font-size: 11px;
+                overflow: elide;
+            }
+
+            // 运行中：官方 MD3 线性进度条（indeterminate 来回扫）
+            if (AppState.running) : ProgressIndicator {
+                height: 4px;
+                indeterminate: true;
+            }
+
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 10px;
+
+                Button {
+                    horizontal-stretch: 1;
+                    // 用户反馈过「运行按钮也好小」—— 官方 Button 默认 40px，
+                    // 这里按 MD3 large 规格拉到 52px（min-height 语义，不破坏官方布局）
+                    min-height: 52px;
+                    text: AppState.run-hint();
+                    enabled: AppState.selected-id != "" && !AppState.running;
+                    primary: true;
+                    clicked => { AppState.run-command(); }
+                }
+
+                if (AppState.running) : Button {
+                    width: 86px;
+                    text: "取消";
+                    clicked => { AppState.cancel-run(); }
+                }
+            }
+        }
+    }
+}

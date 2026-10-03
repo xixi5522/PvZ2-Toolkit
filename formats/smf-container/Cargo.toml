@@ -1,0 +1,20 @@
+[package]
+name = "smf-container"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/smf-container"
+description = "PopCap SMF zlib container reader and writer"
+keywords = ["popcap", "smf", "zlib", "compression"]
+categories = ["compression", "encoding", "game-development"]
+
+[dependencies]
+byteorder = "1.5"
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+md-5 = "0.10"
+thiserror = "2"
+
+[package.metadata.docs.rs]
+all-features = true

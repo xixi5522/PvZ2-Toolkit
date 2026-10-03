@@ -1,0 +1,17 @@
+[package]
+name = "crypt-data"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+categories = ["encoding", "cryptography", "game-development"]
+keywords = ["popcap", "crypt-data", "xor", "plants-vs-zombies"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/crypt-data"
+description = "Reader and writer for PopCap Crypt-Data resources"
+
+[dependencies]
+thiserror = "2.0.20"
+
+[package.metadata.docs.rs]
+all-features = true

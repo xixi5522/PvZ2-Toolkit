@@ -1,0 +1,116 @@
+// ============================================================================
+// icons.slint —— 纯 Slint 原语画的矢量小图标
+//
+// 为什么不用字符图标（⚙ ✓ ✕ 之类）：内嵌的 Noto Sans SC 不一定有
+// 这些符号字形，缺字就渲染成方块。用 Rectangle/Circle 画，
+// 跟字体彻底解耦，也天然支持任意着色。
+//
+// 图标语义对齐 Material Symbols：
+//   IconTune  = tune（滑杆）      → 工具页
+//   IconDoc   = description（文档）→ 日志页
+//   IconGear  = settings（齿轮）  → 设置页
+//   IconPlay  = play_arrow        → 运行按钮
+//   IconClose = close（✕）        → 取消/清除
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+
+// 调用点统一只给 color，尺寸跟随父级（默认 24x24）。
+export component IconTune inherits Rectangle {
+    in property <color> icon-color: Theme.current.on-surface;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+
+    // 三条横向轨道
+    Rectangle { y: 4px;  x: 2px; width: parent.width - 4px; height: 2px; border-radius: 1px; background: root.icon-color; }
+    Rectangle { y: 11px; x: 2px; width: parent.width - 4px; height: 2px; border-radius: 1px; background: root.icon-color; }
+    Rectangle { y: 18px; x: 2px; width: parent.width - 4px; height: 2px; border-radius: 1px; background: root.icon-color; }
+    // 三个滑块（错开布置，一眼能看出是“调节”）
+    Rectangle { y: 1px;  x: parent.width * 0.62; width: 8px; height: 8px; border-radius: 4px; background: root.icon-color; }
+    Rectangle { y: 8px;  x: parent.width * 0.18; width: 8px; height: 8px; border-radius: 4px; background: root.icon-color; }
+    Rectangle { y: 15px; x: parent.width * 0.45; width: 8px; height: 8px; border-radius: 4px; background: root.icon-color; }
+}
+
+export component IconDoc inherits Rectangle {
+    in property <color> icon-color: Theme.current.on-surface;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+
+    // 文档外框（描边矩形 + 折角省略，直接圆角矩形最稳）
+    Rectangle {
+        x: 4px; y: 2px;
+        width: parent.width - 8px;
+        height: parent.height - 4px;
+        border-radius: 4px;
+        background: transparent;
+        border-width: 2px;
+        border-color: root.icon-color;
+    }
+    // 文本行
+    Rectangle { y: 7px;  x: 8px; width: parent.width - 20px; height: 2px; border-radius: 1px; background: root.icon-color; }
+    Rectangle { y: 11.5px; x: 8px; width: parent.width - 20px; height: 2px; border-radius: 1px; background: root.icon-color; }
+    Rectangle { y: 16px; x: 8px; width: parent.width - 28px; height: 2px; border-radius: 1px; background: root.icon-color; }
+}
+
+export component IconGear inherits Rectangle {
+    in property <color> icon-color: Theme.current.on-surface;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+
+    // 齿圈：外环 + 8 个齿（用三角函数摆放到圆周上）
+    Rectangle {
+        x: 5px; y: 5px;
+        width: parent.width - 10px;
+        height: parent.height - 10px;
+        border-radius: (parent.width - 10px) / 2;
+        background: transparent;
+        border-width: 2.5px;
+        border-color: root.icon-color;
+    }
+
+    for i in [0, 1, 2, 3, 4, 5, 6, 7] : Rectangle {
+        property <angle> a: i * 45deg;
+        property <length> r: parent.width / 2 - 1.5px;
+        x: parent.width / 2 + r * Math.cos(self.a) - self.width / 2;
+        y: parent.height / 2 + r * Math.sin(self.a) - self.height / 2;
+        width: 3.5px;
+        height: 3.5px;
+        border-radius: 1.5px;
+        background: root.icon-color;
+    }
+}
+
+export component IconPlay inherits Rectangle {
+    in property <color> icon-color: Theme.current.on-primary;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+
+    // 三角形：用 Path 画（SVG 命令，M 起 L 连 Z 闭合）
+    Path {
+        width: parent.width;
+        height: parent.height;
+        fill: root.icon-color;
+        commands: "M 8 5.5 L 19 12 L 8 18.5 Z";
+    }
+}
+
+export component IconClose inherits Rectangle {
+    in property <color> icon-color: Theme.current.on-surface;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+
+    // 两笔 45° 交叉的描边（Slint 元素没有旋转属性，
+    // 用 Path 的 SVG 命令画最直接）
+    Path {
+        width: parent.width;
+        height: parent.height;
+        stroke: root.icon-color;
+        stroke-width: 2px;
+        commands: "M 7 7 L 17 17 M 17 7 L 7 17";
+    }
+}

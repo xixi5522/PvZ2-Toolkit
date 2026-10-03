@@ -1,0 +1,25 @@
+[package]
+name = "reanim-codec"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+categories = ["encoding", "parser-implementations", "game-development"]
+keywords = ["popcap", "reanim", "animation", "plants-vs-zombies"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/reanim-codec"
+description = "PopCap REANIM binary and Adobe XFL encoder/decoder"
+
+[dependencies]
+anyhow = "1.0.104"
+byteorder = "1.5.0"
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+quick-xml = "0.42.0"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.20"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[package.metadata.docs.rs]
+all-features = true

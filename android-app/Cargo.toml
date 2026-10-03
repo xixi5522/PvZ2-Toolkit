@@ -1,0 +1,160 @@
+[package]
+name = "pvz2-toolkit-android"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish = false
+description = "PvZ2 Toolkit —— 基于 Slint 的安卓 GUI"
+
+# ============================================================================
+# 为什么是 bin 而不是 cdylib？
+#
+# Android 的 NativeActivity 通过 dlsym 找 ANativeActivity_onCreate，
+# 这个符号由 android-activity crate 提供。用 [[bin]] + crate-type 里的
+# "cdylib" 是官方推荐做法：
+#   * [[bin]] 提供 main()，非 Android 平台可以当桌面程序跑，方便调试；
+#   * "cdylib" 产出 libpvz2_toolkit_android.so，里面同时含
+#     ANativeActivity_onCreate 和 android_main。
+#
+# 这样一套代码既能 cargo run（桌面）又能编 Android，调试成本低很多。
+# ============================================================================
+[[bin]]
+name = "pvz2-toolkit"
+path = "src/main.rs"
+
+[lib]
+name = "pvz2_toolkit_android"
+path = "src/lib.rs"
+crate-type = ["cdylib", "lib"]
+
+# ============================================================================
+# feature 说明
+#
+#   （默认）              —— Android / CI 构建用，只带 Android 后端
+#   desktop               —— 开发机上 cargo run 调界面用
+#
+# 为什么桌面后端要做成可选 feature 而不是直接写死在依赖里：
+#   backend-winit 会拉进 winit + femtovg 一大票东西，Android 构建
+#   完全用不到；反之 Android 后端在桌面上也编不过。
+#   用 feature 门控，两边各自独立。
+#
+# 注意它跟 Android 后端是「互斥」而不是「叠加」：同时开两个后端时
+# Slint 会按 SLINT_BACKEND 环境变量在运行期二选一，
+# 但 Android 目标根本编不了 winit，所以还是分开最干净。
+# ============================================================================
+[features]
+# 桌面调界面专用：只用软件渲染器 + winit。
+#
+# 为什么不带 renderer-skia：桌面的 x86_64-unknown-linux-gnu 没有对应的
+# Skia prebuilt，会退化成「从源码编译 skia」，而本环境拉不到 skia 源码。
+# 桌面这边只是想验证 .slint 有没有运行期错误（绑定环、越界属性之类），
+# 软件渲染器完全够用，而且编得快。
+# Android 侧仍然用 Skia（那边有 prebuilt，且 GPU 渲染是必须的）。
+desktop = ["slint/backend-winit", "slint/renderer-software"]
+
+# 把中文字体一起编进二进制。
+#
+# 为什么做成可选：字体文件有 2~3MB，而 Android 系统自带思源黑体，
+# 大多数设备并不需要。但它能兜住两类情况：
+#   1) 精简/定制 ROM 缺 CJK 字体 → 界面中文变空白方块
+#   2) 开发机 fontconfig 没配好 → 桌面调试时「有布局没字」
+# 需要时用 --features bundled-fonts 打开即可。
+# 打开前请确认 android-app/fonts/NotoSansSC-Regular.otf 存在。
+bundled-fonts = []
+
+[build-dependencies]
+# 把 ui/*.slint 编译成 Rust 代码
+slint-build = "1.18.1"
+
+[dependencies]
+# ============================================================================
+# 处理层：全部来自 LambdaEd1th/ed1ths-pvz-toolkit 的 formats 层
+# （AGPL-3.0-or-later）。旧的自研 core 已整体移除，所有格式的
+# 解析/编码/转换都直接调用这批库，与上游桌面版行为一致。
+# ============================================================================
+bnk-archive = { workspace = true }
+compiled-text = { workspace = true }
+crypt-data = { workspace = true }
+dzip = { workspace = true }
+newton-manifest = { workspace = true }
+pak-archive = { workspace = true }
+pam-codec = { workspace = true }
+particle-codec = { workspace = true }
+reanim-codec = { workspace = true }
+rsb-archive = { workspace = true }
+rsb-patch = { workspace = true }
+serde-rton = { workspace = true }
+smf-container = { workspace = true }
+wem-audio = { workspace = true }
+
+# 命令层自己的依赖
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+image = { workspace = true }
+walkdir = { workspace = true }
+
+# Monet 取色（material-color-utilities：HCT → MD3 tonal palette）
+material-color-utilities = { workspace = true }
+# 批量命令按文件粒度并行
+rayon = { workspace = true }
+
+# ============================================================================
+# Slint
+#
+# feature 说明：
+#   std / compat-1-2          —— 必需
+#   backend-android-activity-06 —— ★ 核心：Android 后端，只存在于 Rust API
+#                                   （这也是 C++ 版做不出来的根本原因）
+#   renderer-skia + -opengl   —— Android 上用 Skia + OpenGL ES
+#   renderer-software         —— 兜底：设备不支持 GL 时还能渲染
+#
+# 注意**不要**开 backend-default —— 它会把 winit/qt 拉进来，
+# 在 Android 上既没必要也会显著增大体积。
+#
+# MD3（Material Design 3）样式不在 feature 里，而是由 build.rs 里的
+# CompilerConfiguration::with_style("material") 选择。
+# ============================================================================
+slint = { version = "1.18.1", default-features = false, features = [
+    "std",
+    "compat-1-2",
+    "backend-android-activity-06",
+] }
+
+# ---- 渲染器：这里必须是 target 相关的 ----
+#
+# `renderer-skia` 会无条件把 skia-bindings 拉进来。而 skia-bindings 在
+# 桌面 target（x86_64-unknown-linux-gnu）上没有官方 prebuilt，
+# build.rs 会退化成「下载并编译整个 skia 源码树」—— 本环境做不到。
+#
+# 所以 Skia 只在 Android 上启用（那边有 prebuilt，且 GPU 渲染是必须的）；
+# 桌面上用纯软件渲染，目的只是验证 .slint 的运行期正确性。
+#
+# renderer-software 两个平台都开：Android 上作为「设备不支持 GL」时的兜底。
+[target.'cfg(target_os = "android")'.dependencies.slint]
+version = "1.18.1"
+default-features = false
+features = ["std", "compat-1-2", "renderer-skia", "renderer-skia-opengl", "renderer-software"]
+
+[target.'cfg(not(target_os = "android"))'.dependencies.slint]
+version = "1.18.1"
+default-features = false
+features = ["std", "compat-1-2", "renderer-software"]
+
+# ★ 官方 material 组件内嵌了 SVG 图标（ComboBox 下拉箭头、LineEdit 清除
+#   按钮等），生成代码会调用 i-slint-core 的 load_image_from_embedded_data，
+#   该函数在 core 的 image-decoders feature 下才存在：
+#   * Android：backend-android-activity 无条件启用，无需处理；
+#   * 桌面：没有任何 backend/顶层 feature 会启用它（slint 1.18.1 没有
+#     转发这个 feature 的入口）—— 这里直接对 core 补一次 feature 声明，
+#     cargo 的 feature 统一机制会合并到同一份 i-slint-core 上。
+[target.'cfg(not(target_os = "android"))'.dependencies]
+i-slint-core = { version = "=1.18.1", default-features = false, features = ["image-decoders"] }
+
+# Android 平台层：权限、Toast、SharedPreferences、剪贴板
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk = { version = "0.9", default-features = false }
+android-activity = { version = "0.6", default-features = false, features = ["native-activity"] }
+android_logger = "0.14"
+log = "0.4"

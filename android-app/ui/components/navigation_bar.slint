@@ -1,0 +1,144 @@
+// ============================================================================
+// navigation_bar.slint —— MD3 底部导航栏（Navigation Bar）
+//
+// 用户这轮的核心诉求：「我还是想要底部导航栏来切换界面和设置」。
+//
+// 规格照抄 MD3 navigation bar：
+//   * 高度 80dp，背景 surface-container
+//   * 每个目的地：图标坐在 64×32 的「激活指示胶囊」上 + 12px 文字标签
+//   * 激活态 = 胶囊出现（secondary-container 色）+ 图标/文字换色
+//   * 3~5 个目的地；这里 3 个：工具 / 日志 / 设置
+//
+// 日志目的地支持未读红点（后台跑完了任务提醒用户去看日志）。
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+import { AppState } from "../state.slint";
+import { IconTune, IconDoc, IconGear } from "icons.slint";
+
+// 单个目的地（MD3 叫 destination）
+component NavItem inherits Rectangle {
+    in property <int> tab: 0;
+    in property <string> label;
+    in property <bool> show-badge: false;
+    // 图标组件由调用点塞进来太绕，直接按 tab 编号在内部切换
+    callback activated(int);
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    background: transparent;
+
+    property <bool> is-active: AppState.current-tab == root.tab;
+
+    item-touch := TouchArea {
+        clicked => { root.activated(root.tab); }
+        mouse-cursor: pointer;
+    }
+
+    VerticalLayout {
+        spacing: 4px;
+        padding-top: 8px;
+        padding-bottom: 12px;
+
+        // 激活指示胶囊（64×32，MD3 规格：secondary-container 实色）；
+        // 外面套 HorizontalLayout 是为了让胶囊在交叉轴上居中
+        HorizontalLayout {
+            alignment: center;
+            height: 32px;
+
+            Rectangle {
+                height: 32px;
+                width: 64px;
+                border-radius: 16px;
+                background: root.is-active
+                    ? Theme.current.secondary-container
+                    : (item-touch.pressed ? Theme.current.on-surface.with-alpha(0.10) : transparent);
+                animate background { duration: 140ms; }
+
+                // 图标层：按 tab 分发到具体图标组件
+                Rectangle {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 24px;
+                    height: 24px;
+                    background: transparent;
+
+                    if (root.tab == 0) : IconTune {
+                        width: parent.width; height: parent.height;
+                        icon-color: root.is-active
+                            ? Theme.current.on-secondary-container
+                            : Theme.current.on-surface-variant;
+                    }
+                    if (root.tab == 1) : IconDoc {
+                        width: parent.width; height: parent.height;
+                        icon-color: root.is-active
+                            ? Theme.current.on-secondary-container
+                            : Theme.current.on-surface-variant;
+                    }
+                    if (root.tab == 2) : IconGear {
+                        width: parent.width; height: parent.height;
+                        icon-color: root.is-active
+                            ? Theme.current.on-secondary-container
+                            : Theme.current.on-surface-variant;
+                    }
+
+                    // 未读小红点
+                    if (root.show-badge) : Rectangle {
+                        x: parent.width - 6px;
+                        y: -2px;
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 4px;
+                        background: Theme.current.error;
+                        border-width: 1.5px;
+                        border-color: Theme.current.surface-container;
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 12px;
+            font-weight: root.is-active ? 700 : 500;
+            color: root.is-active ? Theme.current.on-surface : Theme.current.on-surface-variant;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+export component NavigationBar inherits Rectangle {
+    height: Theme.nav-bar-height;
+    background: Theme.current.surface-container;
+
+    callback changed(int);
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+
+        NavItem {
+            tab: 0;
+            label: "工具";
+            activated(t) => { root.changed(t); }
+        }
+        NavItem {
+            tab: 1;
+            label: "日志";
+            show-badge: AppState.has-unread-logs && AppState.current-tab != 1;
+            activated(t) => { root.changed(t); }
+        }
+        NavItem {
+            tab: 2;
+            label: "设置";
+            activated(t) => { root.changed(t); }
+        }
+    }
+
+    // 顶部分隔线：导航栏跟内容区的分界
+    Rectangle {
+        y: 0;
+        height: 1px;
+        background: Theme.current.outline-variant.with-alpha(0.5);
+    }
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 启动图标背景层：MD3 主色（与 Slint 侧种子色一致） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#4C8B3C"
+        android:pathData="M0,0 h108 v108 h-108 z" />
+</vector>

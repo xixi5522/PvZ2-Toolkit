@@ -1,0 +1,224 @@
+// ============================================================================
+// widgets.slint —— 组件库：官方 material 组件 + 自绘补充
+//
+// 本轮升级：**可交互控件全部换成 Slint 官方 std-widgets（material 风格）**：
+//   * OutlinedField → 官方 LineEdit 内核（MD3 outlined text field 规格：
+//     4px 圆角、56px 高、焦点时 accent 描边、自带清除按钮与无障碍），
+//     外面补一个「骑边框浮动标签」—— 这是 MD3 文本框的规格画法，
+//     官方 LineEdit 没有 label，自己补。
+//   * Select → 官方 ComboBox（popup 弹出、点外部自动收起、
+//     状态层 / 键盘导航 / 无障碍齐全）+ 上方小标签。
+//   * Button / Switch：直接用官方组件，本文件不再提供包装，
+//     调用点见各页面与 param_form.slint。
+//
+// 保留自绘的只有官方没有等价物的：
+//   SectionTitle / Card / Chip / StatusDot / Divider / InfoRow，
+//   以及底部导航栏（navigation_bar.slint）。
+//
+// 防失焦约定（沿自 1.13 时代的教训）不变：
+// 文本输入的 edited 只把值发给 Rust 侧的 FORM_VALUES 表，
+// **不回写 params 模型** —— 模型一重建，正在打字的输入框会被
+// 销毁重建，焦点/软键盘全丢。
+// ============================================================================
+
+import { Theme } from "palette.slint";
+import { LineEdit, ComboBox } from "../widgets/material/std-widgets.slint";
+
+// ----------------------------------------------------------------------------
+// 区块标题（MD3 label-large：14px 中字重 + 轻微字距）
+// ----------------------------------------------------------------------------
+export component SectionTitle inherits Text {
+    font-size: 13px;
+    font-weight: 600;
+    color: Theme.current.on-surface-variant;
+    letter-spacing: 0.6px;
+}
+
+// ----------------------------------------------------------------------------
+// 卡片（M3E tonal surface：色阶层次 + 极淡描边代替阴影）
+// 页面底是 surface-container-low，卡片用 surface-container：
+// 浅色下沉半档、深色下浮半档 —— 两端都有「卡片是独立容器」的层次感。
+// ----------------------------------------------------------------------------
+export component Card inherits Rectangle {
+    border-radius: Theme.radius-card;
+    background: Theme.current.surface-container;
+    border-width: 1px;
+    border-color: Theme.current.outline-variant.with-alpha(0.35);
+}
+
+// ----------------------------------------------------------------------------
+// 状态小圆点
+// ----------------------------------------------------------------------------
+export component StatusDot inherits Rectangle {
+    in property <color> dot-color: Theme.current.primary;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: dot-color;
+}
+
+// ----------------------------------------------------------------------------
+// Chip —— 筛选/选项胶囊（MD3 filter chip：全圆、选中 secondary-container）
+// ----------------------------------------------------------------------------
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> active: false;
+    callback clicked();
+
+    height: 32px;
+    min-width: 56px;
+    border-radius: Theme.radius-chip;
+    background: root.active
+        ? Theme.current.secondary-container
+        : (touch.pressed ? Theme.current.surface-container-high : Theme.current.surface-container-low);
+    border-width: 1px;
+    border-color: root.active
+        ? Theme.current.secondary-container
+        : Theme.current.outline-variant;
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+        mouse-cursor: pointer;
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        alignment: center;
+
+        Text {
+            text: root.text;
+            color: root.active
+                ? Theme.current.on-secondary-container
+                : Theme.current.on-surface-variant;
+            font-size: 13px;
+            font-weight: root.active ? 600 : 400;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// OutlinedField —— MD3 描边输入框（官方 LineEdit 内核 + 浮动标签）
+//
+// ★ 标签骑边框：一个 16px 高的小底板盖住输入框上边框，字色跟焦点。
+//   底板颜色必须跟「输入框脚下」的界面底色一致才能无缝遮住边框 ——
+//   页面上是 surface，卡片/浮层里要显式传 label-backdrop。
+// ----------------------------------------------------------------------------
+export component OutlinedField inherits Rectangle {
+    in property <string> label;
+    in property <bool> required: false;
+    in property <string> placeholder;
+    in property <bool> read-only: false;
+    in property <brush> label-backdrop: Theme.current.surface;
+    in-out property <string> text <=> input.text;
+    callback edited(string);
+
+    // 官方 LineEdit 的 MD3 规格：min-height 56px
+    height: 56px;
+    background: transparent;
+
+    input := LineEdit {
+        width: parent.width;
+        height: parent.height;
+        placeholder-text: root.placeholder;
+        read-only: root.read-only;
+        edited(t) => { root.edited(t); }
+    }
+
+    // 标签：骑在上边框上
+    Rectangle {
+        x: 12px;
+        y: -8px;
+        height: 16px;
+        width: field-label.preferred-width + (root.required ? 14px : 0px) + 10px;
+        background: root.label-backdrop;
+
+        field-label := Text {
+            x: 5px;
+            height: 16px;
+            text: root.label;
+            color: input.has-focus ? Theme.current.primary : Theme.current.on-surface-variant;
+            font-size: 11px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+        // 必填 = 红星号，可选 = 不标（信息密度靠 placeholder 补）
+        Text {
+            x: 5px + field-label.preferred-width + 2px;
+            height: 16px;
+            text: "*";
+            color: Theme.current.error;
+            font-size: 12px;
+            font-weight: 700;
+            vertical-alignment: center;
+            visible: root.required;
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Select —— 下拉选择（官方 ComboBox 内核 + 上方小标签）
+//
+// 官方 ComboBox 自己管理 popup 的弹出/收起与选中态，
+// 不再需要旧版 AppState.open-select 的多实例互斥。
+// selected 回调把选中值抛给调用点；绑定断开的小边界
+// （Rust 侧拒绝该值）在参数校验场景里无感，接受。
+// ----------------------------------------------------------------------------
+export component Select inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <[string]> options: [];
+    callback picked(string);
+
+    spacing: 3px;
+
+    Text {
+        height: 14px;
+        text: root.label;
+        color: Theme.current.on-surface-variant;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    ComboBox {
+        model: root.options.length > 0 ? root.options : [""];
+        current-value: root.value;
+        selected(v) => { root.picked(v); }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Divider / InfoRow —— 设置页反复用到的小件
+// ----------------------------------------------------------------------------
+export component Divider inherits Rectangle {
+    height: 1px;
+    background: Theme.current.outline-variant.with-alpha(0.6);
+}
+
+export component InfoRow inherits HorizontalLayout {
+    in property <string> name;
+    in property <string> value;
+
+    spacing: 10px;
+    height: 22px;
+
+    Text {
+        text: root.name;
+        color: Theme.current.on-surface-variant;
+        font-size: 12px;
+        vertical-alignment: center;
+    }
+    Text {
+        text: root.value;
+        color: Theme.current.on-surface;
+        font-size: 12px;
+        horizontal-stretch: 1;
+        horizontal-alignment: right;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+}

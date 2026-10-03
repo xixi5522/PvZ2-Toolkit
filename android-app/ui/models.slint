@@ -1,0 +1,45 @@
+// ============================================================================
+// models.slint —— 跨界面共享的数据结构
+//
+// 参照 flectar/mail 的做法：数据模型独立成一个文件，
+// 界面（screens）和状态（state.slint）都从这里 import，
+// 谁也不依赖谁，只依赖模型本身。
+// ============================================================================
+
+// 功能列表里的一行。
+export struct CommandItem {
+    id: string,
+    name: string,
+    category: string,
+    desc: string,
+    param-count: int,
+}
+
+// 一个参数的元信息 + 当前值。
+//
+// kind 决定渲染成什么控件：
+//   0=输入文件 1=输入目录 2=输出文件 3=输出目录
+//   4=开关 5=整数 6=文本 7=下拉
+export struct ParamField {
+    key: string,
+    label: string,
+    kind: int,
+    value: string,
+    hint: string,
+    required: bool,
+    choices: [string],
+    choice-index: int,
+}
+
+// 底部导航栏的一个目的地。
+export struct NavDestination {
+    tab: int,
+    label: string,
+}
+
+// 设置页主题色预设的一个色样（色块直接由 Rust 侧算好塞进来）。
+export struct ColorPreset {
+    name: string,
+    hex: string,
+    brush: brush,
+}

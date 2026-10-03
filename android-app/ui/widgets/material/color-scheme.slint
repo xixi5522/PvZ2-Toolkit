@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//
+// fork 修改：color-scheme 的数据源从编译器内置 SlintInternal 改为
+// Monet global（../monet.slint，Rust 侧注入），由应用的
+// 「跟随系统 / 浅色 / 深色」设置驱动，不再依赖 backend 的系统回调。
+
+import { Monet } from "../monet.slint";
+
+export global ColorSchemeSelector  {
+    in property <ColorScheme> color-scheme: Monet.color-scheme;
+}

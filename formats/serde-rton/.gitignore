@@ -1,0 +1,20 @@
+# Build artifacts
+/target/
+
+# Library crates: Cargo.lock is for binaries, not libraries
+Cargo.lock
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local

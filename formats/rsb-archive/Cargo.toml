@@ -1,0 +1,34 @@
+[package]
+name = "rsb-archive"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+categories = ["encoding", "parser-implementations"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/rsb-archive"
+description = "Reader, writer, and texture codec support for PopCap/PvZ2 RSB bundles"
+
+[features]
+default = []
+gpu = ["dep:bytemuck", "dep:futures-channel", "dep:wgpu"]
+
+[dependencies]
+byteorder = "1.5"
+bytemuck = { version = "1.24", features = ["derive"], optional = true }
+flate2 = "1.1"
+futures-channel = { version = "0.3", optional = true }
+image = { version = "0.25", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2"
+wgpu = { version = "30", features = ["webgl"], optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+pollster = "1"
+
+[package.metadata.docs.rs]
+all-features = true

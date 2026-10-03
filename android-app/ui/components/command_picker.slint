@@ -1,0 +1,239 @@
+// ============================================================================
+// command_picker.slint —— 功能选择栏
+//
+// 收起时是一条 48px 的胶囊；展开后浮出一张卡片：
+// 搜索框 + 计数徽标 + 单列可滚动功能列表（ListView 虚拟化）。
+//
+// ★ 展开面板由 HomeScreen 绝对定位成「浮层」：
+//   只盖住参数区，**不占操作栏的空间** —— 这就是运行按钮
+//   永远可见的关键（旧版把列表内联进 VerticalLayout，
+//   380px 的列表把操作栏顶出了屏幕）。
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+import { AppState } from "../state.slint";
+import { OutlinedField } from "../theme/widgets.slint";
+import { ListView } from "../widgets/material/std-widgets.slint";
+
+// ----------------------------------------------------------------------------
+// 收起态：一条胶囊（选中功能后显示功能名，未选中显示占位文案）
+// ----------------------------------------------------------------------------
+export component PickerBar inherits Rectangle {
+    height: 48px;
+    border-radius: 24px;
+
+    property <bool> open: AppState.open-select == "@picker";
+
+    background: bar-touch.pressed
+        ? Theme.current.primary.with-alpha(0.14)
+        : Theme.current.primary-container;
+    border-width: 1px;
+    border-color: Theme.current.primary.with-alpha(0.35);
+
+    bar-touch := TouchArea {
+        clicked => {
+            // 顺手关掉参数里摊开的下拉，避免抢空间
+            AppState.open-select = root.open ? "" : "@picker";
+        }
+        mouse-cursor: pointer;
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 14px;
+        spacing: 8px;
+
+        Text {
+            text: "功能";
+            color: Theme.current.on-primary-container.with-alpha(0.75);
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: AppState.selected-name == "" ? "点这里选择功能" : AppState.selected-name;
+            color: Theme.current.on-primary-container;
+            font-size: 15px;
+            font-weight: 700;
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        // 已选中 → 清除小叉（只清选择，不展开列表）
+        if (AppState.selected-name != "") : Rectangle {
+            width: 26px;
+            height: 26px;
+            border-radius: 13px;
+            background: clear-touch.pressed
+                ? Theme.current.on-primary-container.with-alpha(0.18)
+                : transparent;
+
+            clear-touch := TouchArea {
+                clicked => {
+                    AppState.selected-id = "";
+                    AppState.open-select = "";
+                }
+                mouse-cursor: pointer;
+            }
+
+            Text {
+                text: "✕";
+                color: Theme.current.on-primary-container;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        Text {
+            text: root.open ? "▴" : "▾";
+            color: Theme.current.on-primary-container;
+            font-size: 14px;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// 展开态：搜索 + 功能列表（由 HomeScreen 定位成浮层）
+// ----------------------------------------------------------------------------
+export component PickerPanel inherits Rectangle {
+    border-radius: Theme.radius-card;
+    background: Theme.current.surface-container;
+    border-width: 1px;
+    border-color: Theme.current.outline.with-alpha(0.3);
+    drop-shadow-blur: 16px;
+    drop-shadow-color: #00000050;
+    drop-shadow-offset-y: 4px;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+
+        // ---- 搜索行 ----
+        HorizontalLayout {
+            height: 52px;
+            spacing: 8px;
+
+            OutlinedField {
+                horizontal-stretch: 1;
+                label: "搜索";
+                // 面板底色是 surface-container，标签底板必须一致才能无缝遮边框
+                label-backdrop: Theme.current.surface-container;
+                placeholder: "功能名 / 分类，例如 RSB、音频";
+                text <=> AppState.search-text;
+                edited(t) => { AppState.search-changed(t); }
+            }
+
+            // 计数徽标（固定尺寸，交叉轴由布局居中）
+            Rectangle {
+                width: 46px;
+                height: 32px;
+                border-radius: 16px;
+                background: Theme.current.primary-container;
+
+                Text {
+                    text: AppState.command-count;
+                    color: Theme.current.on-primary-container;
+                    font-size: 13px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // ---- 单列功能列表 ----
+        //
+        // ★ 高度交给布局（horizontal-stretch 拉伸的 VerticalLayout），
+        //   不写死 380px：浮层高度由 HomeScreen 按屏幕算好传进来，
+        //   列表吃剩余空间，小屏也不会溢出。
+        if (AppState.command-count > 0) : ListView {
+            vertical-stretch: 1;
+
+            for item in AppState.commands : Rectangle {
+                height: 52px;
+                border-radius: Theme.radius-row;
+                background: row-touch.pressed
+                    ? Theme.current.primary.with-alpha(0.10)
+                    : (AppState.selected-id == item.id
+                        ? Theme.current.primary-container.with-alpha(0.45)
+                        : transparent);
+
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 12px;
+                    spacing: 10px;
+
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        spacing: 1px;
+                        alignment: center;
+
+                        Text {
+                            text: item.name;
+                            color: AppState.selected-id == item.id
+                                ? Theme.current.on-primary-container
+                                : Theme.current.on-surface;
+                            font-size: 14px;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: item.desc;
+                            color: Theme.current.on-surface-variant;
+                            font-size: 11px;
+                            overflow: elide;
+                        }
+                    }
+
+                    Text {
+                        text: item.category;
+                        color: Theme.current.on-surface-variant.with-alpha(0.65);
+                        font-size: 10px;
+                        vertical-alignment: center;
+                    }
+
+                    if (AppState.selected-id == item.id) : Text {
+                        text: "✓";
+                        color: Theme.current.primary;
+                        font-size: 14px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // ★ TouchArea 放在内容布局之后：后声明者在上层、先接事件
+                row-touch := TouchArea {
+                    clicked => {
+                        // 选中后收起面板 —— 参数区随即出现
+                        AppState.open-select = "";
+                        AppState.select-command(item.id);
+                    }
+                    mouse-cursor: pointer;
+                }
+            }
+        }
+
+        // 搜索无结果
+        if (AppState.command-count == 0) : VerticalLayout {
+            vertical-stretch: 1;
+            alignment: center;
+            spacing: 8px;
+            Text {
+                text: "没有匹配的功能";
+                color: Theme.current.on-surface-variant;
+                font-size: 15px;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "换个关键词试试";
+                color: Theme.current.on-surface-variant.with-alpha(0.7);
+                font-size: 13px;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

@@ -1,0 +1,103 @@
+// ============================================================================
+// state.slint —— AppState 全局：界面之间共享的状态与回调
+//
+// 旧版所有状态和回调都堆在 AppWindow 根组件上，三个页面实际是
+// 同一个文件里的两个 if 块 —— 这就是「一个界面的累加」的根源。
+//
+// 现在状态上收到 global，界面各自独立成文件、只从 AppState 取数据。
+// Rust 侧通过 `window.global::<AppState>()` 读写状态、接回调，
+// 不再跟具体的界面结构耦合。
+//
+// 注意：global 里的 in/out 属性 Rust 都能访问；
+// callback 用 on_xxx 接线；in-out 属性界面内部也能改（比如 current-tab）。
+// ============================================================================
+
+import { CommandItem, ParamField, ColorPreset } from "models.slint";
+
+export global AppState {
+    // ========================================================================
+    // 导航（底部导航栏）
+    // ========================================================================
+    // 0=工具 1=日志 2=设置
+    in-out property <int> current-tab: 0;
+    // 日志页不在前台时来过新日志 → 导航栏上给个小红点
+    in-out property <bool> has-unread-logs: false;
+
+    // ========================================================================
+    // 工具页：功能选择
+    // ========================================================================
+    in-out property <string> search-text: "";
+    in property <[CommandItem]> commands: [];
+    in property <int> command-count: 0;
+
+    in-out property <string> selected-id: "";
+    in property <string> selected-name: "";
+    in property <string> selected-desc: "";
+    in property <[ParamField]> params: [];
+
+    // 参数下拉的互斥展开：同一时刻最多摊开一个 Select
+    in-out property <string> open-select: "";
+
+    // ========================================================================
+    // 运行状态 / 日志
+    // ========================================================================
+    in-out property <bool> running: false;
+    in-out property <string> status-text: "就绪";
+    in property <bool> last-ok: false;
+    in-out property <string> last-result: "";
+    // 日志全文由 Rust 侧累积后整段 set 进来（单向）
+    in-out property <string> log-text: "";
+
+    // ========================================================================
+    // 设置页
+    // ========================================================================
+    in property <string> author: "嘻嘻哈哈嘿嘿";
+    in property <string> theme-mode: "system";
+    in property <int> threads: 0;
+    in property <bool> storage-granted: false;
+    in property <string> storage-status: "";
+    in property <string> device-abi: "";
+    in property <string> data-dir: "";
+
+    // ---- 主题色（Monet）----
+    // "monet" = 跟随系统莫奈取色；"#RRGGBB" = 用户自定义种子色
+    in property <string> theme-color: "monet";
+    // 预设色样（Rust 侧把名称/ hex / 色值一次性注入）
+    in property <[ColorPreset]> color-presets-row1: [];
+    in property <[ColorPreset]> color-presets-row2: [];
+    // 自定义 hex 输入框的草稿（纯 UI 状态，点「应用」才提交）
+    in-out property <string> custom-color-input: "";
+
+    // ========================================================================
+    // 开源与许可（AGPL-3.0）
+    // ========================================================================
+    // 许可证全文由 Rust 侧 include_str! 注入（编译期打包进 APK）；
+    // 感谢/许可页做成设置页内的全屏浮层，开关纯 UI 状态，不经过 Rust。
+    in property <string> license-text: "";
+    in-out property <bool> license-open: false;
+
+    // ========================================================================
+    // 回调（Rust 侧接线）
+    // ========================================================================
+    callback search-changed(string);
+    callback select-command(string);
+    callback param-value-changed(string, string);
+    callback run-command();
+    callback cancel-run();
+    callback clear-log();
+    callback set-theme-mode(string);
+    callback set-theme-color(string);
+    callback set-threads(int);
+    callback request-storage-permission();
+    callback copy-diagnostics();
+
+    // ========================================================================
+    // 共享的小工具函数
+    // ========================================================================
+    // 未选功能时运行按钮上的提示文案
+    public pure function run-hint() -> string {
+        if (self.running) { return "执行中…"; }
+        if (self.selected-id == "") { return "先在上面选一个功能"; }
+        return "开始运行";
+    }
+}

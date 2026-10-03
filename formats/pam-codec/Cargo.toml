@@ -1,0 +1,14 @@
+[package]
+name = "pam-codec"
+version = "0.1.2"
+edition = "2024"
+authors = ["ed1th"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/pam-codec"
+description = "PAM binary format codec for PopCap/PvZ2 animations"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+byteorder = "1.5.0"
+thiserror = "2.0.20"
+bitflags = "2.13.1"

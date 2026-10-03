@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  pvz2-toolkit —— 植物大战僵尸2 资源工具箱
+
+  设计要点：
+    1) android:hasCode="false" —— 应用自身不带 Java 代码。
+       真正跑起来的 dex 是 Slint 后端在编译期生成、并嵌进 .so 的 16KB
+       SlintAndroidJavaHelper（负责软键盘 / 剪贴板 / 深色模式检测）。
+       见 internal/backends/android-activity/javahelper.rs。
+
+    2) android:extractNativeLibs="false" —— so 不从 apk 解压到 /data/app。
+       必须配合 apk 里 so 用 STORED（不压缩）+ 4096 字节页对齐，
+       否则 Android 12+ 直接拒绝安装。打包脚本里有校验。
+
+    3) 权限：READ/WRITE_EXTERNAL_STORAGE 用于读写用户的 .rsb/.pak 文件。
+       Android 11+ 这两个权限实际只影响 MediaStore 之外的老式路径，
+       所以再加 MANAGE_EXTERNAL_STORAGE（用户在设置页手动授权）
+       与 requestLegacyExternalStorage 双保险。
+
+    4) android.app.lib_name 必须是 so 的文件名去掉 lib 前缀与 .so 后缀，
+       即 libpvz2_toolkit_android.so → pvz2_toolkit_android。
+       写错的话 NativeActivity 找不到入口，一启动就闪退 —— 这是上一版
+       C++ 实现踩过的坑之一。
+
+    5) configChanges 里必须带上 uiMode（深色模式切换）与 density（分屏/折叠屏），
+       否则这些变化会重建 Activity，Slint 的渲染状态会丢。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.pvz2toolkit.app">
+
+    <!-- 读写用户设备上的资源包 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Android 11+ 访问任意目录下的 .rsb 需要用户手动开启「所有文件访问」 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <!-- 图形能力声明：Skia 渲染器走 OpenGL ES 3.0 -->
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:hasCode="false"
+        android:extractNativeLibs="false"
+        android:requestLegacyExternalStorage="true"
+        android:hardwareAccelerated="true"
+        android:theme="@style/AppTheme"
+        tools:targetApi="34">
+
+        <activity
+            android:name="android.app.NativeActivity"
+            android:label="@string/app_name"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|smallestScreenSize"
+            android:screenOrientation="fullSensor"
+            android:windowSoftInputMode="adjustResize"
+            tools:ignore="AppLinkUrlError">
+
+            <!--
+              NativeActivity 靠这个 meta-data 找到要 dlopen 的 so。
+              值 = so 文件名去掉 lib 前缀和 .so 后缀。
+            -->
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="pvz2_toolkit_android" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

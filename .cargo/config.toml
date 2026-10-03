@@ -1,0 +1,144 @@
+# ============================================================================
+# 链接器 / 归档器
+#
+# 这里必须写「绝对路径」。原因：cargo 的 `linker` 配置项是不会经过 PATH 查找的
+# ——它把字符串原样交给链接驱动去 exec。写裸名字 "aarch64-linux-android26-clang"
+# 会得到：
+#     error: linker `aarch64-linux-android26-clang` not found
+#            = note: No such file or directory (os error 2)
+# 即使那个文件确实在 NDK 的 bin/ 里、也确实在 PATH 上。（cargo 对 host linker
+# 走 PATH 查找，对 target linker 不查，这是个很容易踩的坑。）
+#
+# 下面的 *-clang 包装器是 NDK 提供的：它会自动带上 --target=<triple><api>
+# 和正确的 sysroot / -fPIC 等参数，所以不能直接用裸 clang。
+#
+# API 等级选 26：Android 8.0。再往上没必要，往下 Slint/Skia 用到的
+# 一些 API 会缺。
+# ============================================================================
+_NDK_BIN = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin"
+
+[target.aarch64-linux-android]
+linker = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang"
+ar = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+
+[target.armv7-linux-androideabi]
+linker = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi26-clang"
+ar = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+
+[target.x86_64-linux-android]
+linker = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang"
+ar = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+
+# i686 的 NDK 包装器名字是 i686-linux-android26-clang，但 cc-rs 在没有
+# CC_i686-linux-android 时会自己去拼 "i686-linux-android-clang"（不带 API 等级），
+# 那个文件不存在 —— 所以下面 [env] 里的 CC_* 是必需的，不是可选优化。
+[target.i686-linux-android]
+linker = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android26-clang"
+ar = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+
+# ============================================================================
+# Android SDK 定位
+#
+# 为什么必须写在这里、而不是只靠 shell 里的 export：
+#
+#   Slint 的 Android 后端（i-slint-backend-android-activity）的 build.rs 里
+#   要用 android-build crate 去 <SDK>/platforms/ 下找 android.jar，
+#   找不到就直接 panic!("No Android platforms found")。
+#
+#   它读的是 ANDROID_HOME / ANDROID_SDK_ROOT。而 cargo 的 build script
+#   环境是由 cargo 自己拼的 —— 从别的脚本里嵌套调 cargo 时，
+#   父进程的 export 不一定能可靠地传下去。
+#
+#   写进 [env] 段就稳了：cargo 会给所有 build script 注入这些变量，
+#   完全不依赖父 shell。
+#
+#   force = false 表示「环境里已有就用环境的，没有才用这个默认值」，
+#   所以换机器时 export 一下就能覆盖。
+# ============================================================================
+[env]
+ANDROID_HOME = { value = "/opt/android-sdk", force = false }
+ANDROID_SDK_ROOT = { value = "/opt/android-sdk", force = false }
+ANDROID_NDK_HOME = { value = "/opt/android-sdk/android-ndk-r27c", force = false }
+ANDROID_NDK = { value = "/opt/android-sdk/android-ndk-r27c", force = false }
+ANDROID_PLATFORM = { value = "android-35", force = false }
+ANDROID_API_LEVEL = { value = "35", force = false }
+ANDROID_SDK_VERSION = { value = "35", force = false }
+ANDROID_BUILD_TOOLS_VERSION = { value = "34.0.0", force = false }
+
+# ANDROID_JAR 是 android-build crate 的「最高优先级」查找路径：
+#
+#   pub fn android_jar(platform: Option<&str>) -> Option<PathBuf> {
+#       env_var(ANDROID_JAR).ok()
+#           .and_then(PathExt::path_if_exists)   // 必须是个「存在的文件」
+#           .map(PathBuf::from)
+#           .or_else(|| /* 否则才去 SDK 目录里扫 platforms/ */)
+#   }
+#
+# 直接指到文件，就完全跳过了「扫 platforms 目录 + 猜版本号」那段
+# 容易出错的逻辑，是这里最稳的解法。
+ANDROID_JAR = { value = "/opt/android-sdk/platforms/android-35/android.jar", force = false }
+
+# ============================================================================
+# C 编译器（cc-rs 的 CC_<target> 约定）
+#
+# 为什么单独列出来：cargo 的 [target.*].linker 只管「最后一步链接」，
+# 而所有带 C/C++ 代码的 crate（skia-bindings、tikv-jemalloc-sys 等）都走
+# cc-rs 去自己找编译器。cc-rs 的查找顺序是：
+#     CC_<target with dash>  →  CC_<target with underscore>  →  TARGET_CC  →  CC
+#                              →  然后自己拼 "<target>-clang" 再在 PATH 里找
+#
+# 最后那一档会拼出 "aarch64-linux-android-clang" —— NDK 里根本没这个文件！
+# NDK 的包装器是 "aarch64-linux-android26-clang"，带 API 等级。
+# 于是 cc-rs 报：
+#     error occurred in cc-rs: failed to find tool "x86_64-linux-android-clang":
+#           No such file or directory (os error 2)
+#
+# 所以必须显式给出 CC_<target>。下面四个变量对应我们的三个 ABI
+# （aarch64 给 arm64-v8a，x86_64 与 i686 各一个；armv7 编译不了，
+#   但配置留着，将来 Skia 补了 armv7 prebuilt 就能直接用）。
+#
+# 下划线别名（CC_aarch64_linux_android）是 cc-rs 为「环境变量名不允许连字符
+# 的 shell」准备的老写法，两个都写上最保险。
+#
+# 变量值就是 NDK 的 clang 包装器，它会自动带 --target / --sysroot / -fPIC。
+# ============================================================================
+CC_aarch64-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang", force = false }
+CC_aarch64_linux_android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang", force = false }
+CXX_aarch64-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++", force = false }
+AR_aarch64-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar", force = false }
+
+CC_x86_64-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang", force = false }
+CC_x86_64_linux_android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang", force = false }
+CXX_x86_64-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang++", force = false }
+AR_x86_64-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar", force = false }
+
+CC_i686-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android26-clang", force = false }
+CC_i686_linux_android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android26-clang", force = false }
+CXX_i686-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android26-clang++", force = false }
+AR_i686-linux-android = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar", force = false }
+
+CC_armv7-linux-androideabi = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi26-clang", force = false }
+CC_armv7_linux_androideabi = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi26-clang", force = false }
+CXX_armv7-linux-androideabi = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi26-clang++", force = false }
+AR_armv7-linux-androideabi = { value = "/opt/android-sdk/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar", force = false }
+
+# ============================================================================
+# Skia 预编译二进制（离线）
+#
+# 为什么需要：slint 的 skia 渲染器依赖 skia-bindings，它的 build.rs 默认会去
+#   https://github.com/rust-skia/skia-binaries/releases/download/{tag}/skia-binaries-{key}.tar.gz
+# 下载对应平台的预编译 skia 静态库。这个沙箱访问不了 github.com
+# （curl 报 OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443），
+# 下载失败后它会退化成「从源码全量编译 skia」——那需要再下载 skia 源码树，
+# 同样会失败，而且就算下得动也要编译半小时以上。
+#
+# 解法：SKIA_BINARIES_URL 支持自定义 URL 模板，模板里可用两个占位符：
+#     {tag}  →  0.87.0                （skia-bindings 的版本号）
+#     {key}  →  e551f334ad5cbdf43abf-aarch64-linux-android-gl-pdf-textlayout-vulkan
+#               （host/target/特性组合算出来的哈希）
+# 注意是 {tag}/{key} 这两个具名占位符，不是 "{}" —— 写成 "{}" 不会被替换。
+#
+# 下面用 file:// 指向本地已缓存的 tar.gz，完全绕开网络。
+# 换机器时把 SKIA_BINARIES_URL export 成真实镜像地址即可覆盖。
+# ============================================================================
+SKIA_BINARIES_URL = { value = "https://gh-proxy.com/https://github.com/rust-skia/skia-binaries/releases/download/{tag}/skia-binaries-{key}.tar.gz", force = false }

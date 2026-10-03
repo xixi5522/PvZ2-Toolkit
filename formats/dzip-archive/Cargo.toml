@@ -1,0 +1,31 @@
+[package]
+name = "dzip"
+version = "0.5.1"
+edition = "2024"
+repository = "https://github.com/LambdaEd1th/dzip-archive"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Pure Rust library for reading, extracting, creating, and inspecting Dzip archives"
+readme = "README.md"
+keywords = ["archive", "compression", "dzip", "gamedev"]
+categories = ["compression", "encoding"]
+
+[dependencies]
+byteorder = "1.5.0"
+rayon = { version = "1.12.0", optional = true }
+serde = { version = "1.0.229", features = ["derive"], optional = true }
+
+[features]
+default = ["encode", "decode", "all-codecs"]
+encode = []
+decode = []
+all-codecs = ["bzip", "dz", "lzma", "zlib"]
+bzip = []
+dz = []
+lzma = []
+zlib = []
+parallel = ["dep:rayon"]
+serde = ["dep:serde"]
+
+[dev-dependencies]
+sha2 = "0.11.0"

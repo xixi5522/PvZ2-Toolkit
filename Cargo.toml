@@ -1,0 +1,113 @@
+[workspace]
+members = [
+    "android-app",
+    # ---- ed1ths-pvz-toolkit 的 14 个格式库（AGPL-3.0-or-later）----
+    # 上游 https://github.com/LambdaEd1th/ed1ths-pvz-toolkit 的 crates/formats
+    # 以源码形式并入本仓库（path 依赖），保证可复现构建。
+    "formats/bnk-archive",
+    "formats/compiled-text",
+    "formats/crypt-data",
+    "formats/dzip-archive",
+    "formats/newton-manifest",
+    "formats/pak-archive",
+    "formats/pam-codec",
+    "formats/particle-codec",
+    "formats/reanim-codec",
+    "formats/rsb-archive",
+    "formats/rsb-patch",
+    "formats/serde-rton",
+    "formats/smf-container",
+    "formats/wem-audio",
+]
+resolver = "2"
+
+# ============================================================================
+# Slint 依赖说明
+#
+# android-app 的 slint / slint-build 依赖走 crates.io 正式版本：
+#
+#     slint = { version = "1.18.1", ... }
+#     slint-build = "1.18.1"
+#
+# 1.18.1 是发布本版时的最新版（自 1.13.1 升级）。
+# ============================================================================
+#
+# ============================================================================
+# 格式库说明（AGPL 合规）
+#
+# 本 workspace 的 formats/ 目录整体来自 LambdaEd1th/ed1ths-pvz-toolkit
+# 的 crates/formats（14 个独立仓库，均为 AGPL-3.0-or-later）。
+# 因此本项目整体以 AGPL-3.0-or-later 发布，详见 LICENSE 与 README。
+# ============================================================================
+
+[workspace.package]
+version = "2.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+authors = ["嘻嘻哈哈嘿嘿"]
+repository = "https://github.com/LambdaEd1th/ed1ths-pvz-toolkit"
+
+[workspace.dependencies]
+# ---- 内部 crate ----
+# （旧的自研 toolkit-core 已移除，处理层全部由 formats/ 提供）
+
+# ---- 格式库（ed1th，AGPL-3.0-or-later）----
+bnk-archive = { path = "formats/bnk-archive" }
+compiled-text = { path = "formats/compiled-text" }
+crypt-data = { path = "formats/crypt-data" }
+dzip = { path = "formats/dzip-archive" }
+newton-manifest = { path = "formats/newton-manifest" }
+pak-archive = { path = "formats/pak-archive" }
+pam-codec = { path = "formats/pam-codec" }
+particle-codec = { path = "formats/particle-codec" }
+reanim-codec = { path = "formats/reanim-codec" }
+rsb-archive = { path = "formats/rsb-archive" }
+rsb-patch = { path = "formats/rsb-patch" }
+serde-rton = { path = "formats/serde-rton", features = ["crypto"] }
+smf-container = { path = "formats/smf-container" }
+wem-audio = { path = "formats/wem-audio" }
+
+# ---- 序列化 / 通用 ----
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+byteorder = "1.5"
+anyhow = "1.0"
+thiserror = "2"
+
+# ---- 图像 ----
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+# ---- 通用 ----
+walkdir = "2.5.0"
+
+# ---- 主题（Google 官方 Monet 算法：HCT + tonal palette）----
+material-color-utilities = "1.0.0-dev.18"
+
+# ---- 并行（批量解包/打包/转图按文件粒度吃满多核）----
+rayon = "1.10"
+
+# ============================================================================
+# Release profile
+#
+# 注意 panic 策略：
+#   这里保持 "unwind"，不是原工程的 "abort"。
+#
+#   原因是我们需要 catch_unwind 来把 panic 变成 logcat 里一条可读日志。
+#   如果设成 "abort"，任何 panic 都会直接 SIGABRT，logcat 里只剩
+#   "Fatal signal 6"，完全看不出崩在哪 —— C++ 版就是栽在这个上面。
+#
+#   Slint 的 Android 后端自己在跨 JNI 边界的地方已经用了
+#   abort_on_panic()（见 android-activity/src/util.rs），所以
+#   用 unwind 不会引入"异常穿过 FFI 边界"的 UB 风险。
+#
+#   代价：unwind 表约几十 KB，可接受。
+# ============================================================================
+[profile.release]
+# 2.1 起从 "z" 改成 3：z 是体积优先，CPU 密集的部分（PNG 编解码、
+# deflate、RTON/文本转码）在 z 下比 3 慢一大截 —— 用户实测「解包
+# 回包好慢」的主要原因之一。自有代码 2MB 级别，APK 总量影响忽略。
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"

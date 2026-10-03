@@ -1,0 +1,137 @@
+// ============================================================================
+// logs_screen.slint —— 日志页
+//
+// 旧版日志是「运行结束后弹出的 MD3 弹窗」；这一版日志升级成了
+// 独立页面（底部导航栏的第二个目的地），弹窗取消：
+//   * 运行结束时 Rust 侧自动切到本页（等价于旧版的自动弹出）；
+//   * 平时想看历史日志，点底部「日志」即可，不再需要操作栏上的按钮；
+//   * 有新日志而页面不在前台时，导航栏上会出现小红点。
+//
+// 页面自身：状态摘要卡（成功/失败配色）+ 等宽字体日志正文 + 清空按钮。
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+import { AppState } from "../state.slint";
+import { StatusDot } from "../theme/widgets.slint";
+import { Button, ScrollView } from "../widgets/material/std-widgets.slint";
+
+export component LogsScreen inherits Rectangle {
+    background: Theme.current.surface-container-low;
+
+    VerticalLayout {
+        spacing: 0px;
+
+        // ---- 页头 ----
+        // 用绝对定位而不是 HorizontalLayout：布局的交叉轴会把
+        // 固定尺寸的小元素贴顶放（StatusDot 是 8px 的点，会悬到
+        // 行顶上变成「天上的红点」），绝对定位才能让它垂直居中。
+        Rectangle {
+            height: 54px;
+
+            Text {
+                x: 16px;
+                height: parent.height;
+                text: "运行日志";
+                color: Theme.current.on-surface;
+                font-size: 20px;
+                font-weight: 800;
+                vertical-alignment: center;
+            }
+
+            header-status := Text {
+                x: parent.width - self.preferred-width - 16px;
+                height: parent.height;
+                text: AppState.running ? "运行中" : (AppState.last-ok ? "成功" : "就绪");
+                color: Theme.current.on-surface-variant;
+                font-size: 13px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+
+            StatusDot {
+                x: parent.width - 16px - header-status.preferred-width - 10px - self.width;
+                y: (parent.height - self.height) / 2;
+                dot-color: AppState.running ? Theme.current.secondary
+                    : (AppState.last-ok ? Theme.current.primary : Theme.current.error);
+            }
+        }
+
+        // ---- 状态摘要 ----
+        if (AppState.status-text != "就绪") : Rectangle {
+            height: status-text.preferred-height + 20px;
+            border-radius: Theme.radius-row;
+            background: AppState.last-ok && !AppState.running
+                ? Theme.current.primary.with-alpha(0.10)
+                : Theme.current.error.with-alpha(0.10);
+
+            status-text := Text {
+                x: 12px;
+                y: 10px;
+                width: parent.width - 24px;
+                text: AppState.status-text;
+                color: AppState.last-ok && !AppState.running
+                    ? Theme.current.primary
+                    : Theme.current.error;
+                font-size: 12px;
+                font-weight: 600;
+                wrap: word-wrap;
+            }
+        }
+
+        // ---- 日志正文（本页唯一的滚动区）----
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: Theme.radius-row;
+            background: Theme.current.surface-container;
+            border-width: 1px;
+            border-color: Theme.current.outline.with-alpha(0.25);
+
+            ScrollView {
+                // 追加式日志：视口贴到末尾，新日志出来自动滚到底
+                content-y: max(0px, body-text.preferred-height - self.height + 16px);
+
+                body-text := Text {
+                    x: 10px;
+                    y: 8px;
+                    width: parent.width - 20px;
+                    text: AppState.log-text == "" ? "（还没有日志。选一个功能，点「开始运行」试试。）" : AppState.log-text;
+                    color: AppState.log-text == ""
+                        ? Theme.current.on-surface-variant.with-alpha(0.5)
+                        : Theme.current.on-surface;
+                    font-size: 11px;
+                    // ★ 不要在这里设 font-family: "monospace" —— Android 没有
+                    //   fontconfig，"monospace" 族查不到任何字形，整段日志全是
+                    //   方框（tofu）。留空则走 Window.default-font-family，
+                    //   即随包内嵌的 Noto Sans CJK SC，中英文都正常。
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        // ---- 底部操作 ----
+        Rectangle {
+            height: 56px;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 8px;
+                alignment: center;
+
+                Button {
+                    text: "清空日志";
+                    clicked => { AppState.clear-log(); }
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                Text {
+                    text: AppState.running ? "任务进行中，日志持续写入…" : "";
+                    color: Theme.current.on-surface-variant.with-alpha(0.7);
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

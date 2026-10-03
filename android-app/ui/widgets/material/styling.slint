@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//
+// ============================================================================
+// fork 修改说明（相对 Slint 1.18.1 官方 material/styling.slint）：
+//
+// 官方版的 MaterialPalette 是「baseline 常量 + accentify() 近似」：
+// accent 色相替换进少数几个角色，surface 系永远是固定紫灰 tint。
+// fork 后数据源整体换成 Monet global（../monet.slint）—— 由 Rust 侧
+// 用 material-color-utilities（Google Monet 算法）从种子色算出的
+// 完整 MD3 tonal palette 注入。效果：
+//   * 全部组件（含 surface 系背景）跟随主题色
+//   * 「跟随系统」= Material You 壁纸取色；「自定义」= 设置页选色
+// 角色别名映射（control-background 等）保持官方语义不变。
+// ============================================================================
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+import { Monet } from "../monet.slint";
+
+// typo settings
+struct TextStyle { font-size: relative-font-size, font-weight: int}
+
+export global MaterialFontSettings {
+    out property <TextStyle> label-large: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> label-medium: { font-size: 12pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> body-large: { font-size: 16pt * 1rem / 14pt, font-weight: FontWeight.normal };
+    out property <TextStyle> body-small: { font-size: 12pt * 1rem / 14pt, font-weight: FontWeight.normal };
+    out property <TextStyle> title-small: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> headline-large: { font-size: 32pt * 1rem / 14pt, font-weight: FontWeight.medium };
+}
+
+export global Elevation {
+    out property <length> level0: 0px;
+    out property <length> level1: 1px;
+    out property <length> level2: 2px;
+}
+
+export global MaterialPalette {
+    in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
+    property <bool> dark-color-scheme: Monet.dark;
+
+    // base palette —— 全部来自 Monet（Rust 注入的 MD3 tonal palette）
+    // 官方语义对照：background 比纯 surface 深半档（#f8f3f9），
+    // alternate-background 是纯 surface（#FFFBFE / #1C1B1F）
+    out property <brush> background: Monet.surface-container-low;
+    out property <brush> foreground: Monet.on-surface;
+    out property <brush> alternate-background: Monet.surface;
+    out property <brush> alternate-foreground: Monet.on-surface;
+    // 官方 control-background 就是 MD3 的 secondary-container
+    out property <brush> control-background: Monet.secondary-container;
+    out property <brush> control-foreground: Monet.on-secondary-container;
+    out property <brush> accent-background: Monet.primary;
+    out property <brush> accent-foreground: Monet.on-primary;
+    out property <brush> selection-background: Monet.primary.with-alpha(0.3);
+    out property <brush> selection-foreground: Monet.on-surface;
+    out property <brush> border: Monet.outline;
+
+    // additional palette
+    out property <brush> control-background-variant: Monet.surface-container-highest;
+    out property <brush> control-foreground-variant: Monet.on-surface-variant;
+    out property <brush> control-background-tint: Monet.primary;
+    // switch 的 on 手柄：官方是硬编码 tone30，这里按 MD3 规范用 on-primary
+    out property <brush> accent-container: Monet.on-primary;
+    out property <brush> accent-ripple: Monet.primary-container;
+    out property <brush> shadow: #000000.with_alpha(0.3);
+    out property <brush> border-variant: Monet.outline-variant;
+    out property <brush> foreground-alt: Monet.on-surface;
+    out property <brush> secondary-ripple: !dark-color-scheme ? #fffc : #000000;
+    out property <brush> surface-container: Monet.surface-container;
+    out property <brush> surface-container-high: Monet.surface-container-high;
+    out property <brush> surface-container-highest: Monet.surface-container-highest;
+    out property <brush> tertiary-container: Monet.tertiary-container;
+    out property <brush> on-tertiary-container: Monet.on-tertiary-container;
+
+    out property <brush> state-default: Monet.on-surface;
+    out property <brush> state-secondary: Monet.primary;
+    out property <brush> state-tertiary: Monet.on-primary-container;
+}
+
+export global Icons {
+    out property <image> arrow-downward: @image-url("_arrow-downward.svg");
+    out property <image> arrow-drop-down: @image-url("_arrow-drop-down.svg");
+    out property <image> arrow-drop-up: @image-url("_arrow-drop-up.svg");
+    out property <image> arrow-upward: @image-url("_arrow-upward.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> expand-more: @image-url("_expand-more.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
+    out property <image> arrow-back: @image-url("_arrow_back.svg");
+    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
+    out property <image> edit: @image-url("_edit.svg");
+    out property <image> calendar: @image-url("_calendar.svg");
+}
+
+export global MaterialSizeSettings {
+    out property <length> item-height: 48px;
+}

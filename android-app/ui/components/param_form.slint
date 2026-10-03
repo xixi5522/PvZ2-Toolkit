@@ -1,0 +1,106 @@
+// ============================================================================
+// param_form.slint —— 参数表单（按 ParamField.kind 渲染控件）
+//
+// ★ 本轮的紧凑化：
+//   旧版每个参数头上有一整行「标签 + 必填/可选 + 类型」，加上
+//   14px 的行距，4 个参数就能吃掉小半块屏幕。现在：
+//     * 文本/路径/整数 → OutlinedField（标签骑边框，必填 = 红星号）
+//     * 开关           → 一行：标签 + 提示 + Switch
+//     * 下拉           → Select（同样是骑边框标签）
+//   一个参数只占 52px，行距 8px —— 「必填和文件占大半屏」的问题消失。
+//
+// ★ 防失焦约定（沿自 1.13 时代的教训）：
+//   文本输入的 edited 只把值发给 Rust 侧的 FORM_VALUES 表，
+//   **不回写 params 模型** —— 模型一重建，正在打字的 TextInput
+//   会被销毁重建，焦点/软键盘全丢。
+// ============================================================================
+
+import { Theme } from "../theme/palette.slint";
+import { AppState } from "../state.slint";
+import { OutlinedField, Select } from "../theme/widgets.slint";
+import { Switch } from "../widgets/material/std-widgets.slint";
+
+export component ParamForm inherits VerticalLayout {
+    spacing: 10px;
+
+    for p in AppState.params : VerticalLayout {
+        spacing: 4px;
+
+        // ---- 路径 / 整数 / 文本：统一紧凑描边框 ----
+        // kind: 0=输入文件 1=输入目录 2=输出文件 3=输出目录 5=整数 6=文本
+        if (p.kind <= 3 || p.kind == 5 || p.kind == 6) : OutlinedField {
+            label: p.label;
+            required: p.required;
+            placeholder: p.hint == "" ? "手动输入路径" : p.hint;
+            text: p.value;
+            // 只上报，不回写模型 —— 防失焦的关键
+            edited(v) => { AppState.param-value-changed(p.key, v); }
+        }
+
+        // ---- 开关：单行 ----
+        // 官方 Switch 自己管理 checked 翻转，toggled 无参 ——
+        // 回调触发时 checked 已是新值，直接上报即可。
+        if (p.kind == 4) : HorizontalLayout {
+            height: 40px;
+            spacing: 10px;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 1px;
+
+                HorizontalLayout {
+                    spacing: 4px;
+                    Text {
+                        text: p.label;
+                        color: Theme.current.on-surface;
+                        font-size: 13px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                    if (p.required) : Text {
+                        text: "*";
+                        color: Theme.current.error;
+                        font-size: 12px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+                if (p.hint != "") : Text {
+                    text: p.hint;
+                    color: Theme.current.on-surface-variant.with-alpha(0.8);
+                    font-size: 11px;
+                    wrap: word-wrap;
+                    overflow: elide;
+                }
+            }
+
+            Rectangle {
+                width: 52px;
+                height: 32px;
+                background: transparent;
+
+                Switch {
+                    y: (parent.height - self.height) / 2;
+                    checked: p.value == "true";
+                    toggled => {
+                        AppState.param-value-changed(p.key, self.checked ? "true" : "false");
+                    }
+                }
+            }
+        }
+
+        // ---- 下拉：官方 ComboBox（popup 自带收起逻辑）----
+        if (p.kind == 7) : Select {
+            label: p.label;
+            value: p.choice-index >= 0 && p.choice-index < p.choices.length
+                ? p.choices[p.choice-index]
+                : "";
+            options: p.choices;
+            picked(v) => { AppState.param-value-changed(p.key, v); }
+        }
+    }
+
+    // 参数区底部留白，避免最后一个输入框贴着操作栏
+    Rectangle { height: 6px; }
+}

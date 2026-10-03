@@ -1,0 +1,24 @@
+[package]
+name = "bnk-archive"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+categories = ["encoding", "parser-implementations", "multimedia::audio"]
+keywords = ["wwise", "bnk", "soundbank", "audio"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/bnk-archive"
+description = "Lossless, version-aware reader and writer for Audiokinetic Wwise BNK sound banks"
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "dep:serde_bytes"]
+
+[dependencies]
+byteorder = "1.5.0"
+serde = { version = "1.0.229", features = ["derive"], optional = true }
+serde_bytes = { version = "0.11.19", optional = true }
+thiserror = "2.0.20"
+
+[package.metadata.docs.rs]
+all-features = true

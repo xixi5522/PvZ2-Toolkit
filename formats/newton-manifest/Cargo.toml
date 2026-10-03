@@ -1,0 +1,23 @@
+[package]
+name = "newton-manifest"
+version = "0.1.0"
+edition = "2024"
+authors = ["ed1th"]
+categories = ["encoding", "parser-implementations"]
+keywords = ["popcap", "pvz2", "newton", "resource-manifest"]
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/LambdaEd1th/newton-manifest"
+description = "Reader and writer for PopCap/PvZ2 NEWTON resource manifests"
+
+[dependencies]
+byteorder = "1.5.0"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.20"
+
+[dev-dependencies]
+proptest = "1.11.0"
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+
+[package.metadata.docs.rs]
+all-features = true

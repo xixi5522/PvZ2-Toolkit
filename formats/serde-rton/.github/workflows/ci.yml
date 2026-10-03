@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # -----------------------------------------------------------------
+  # Job 1: Code Quality (Formatting & Linting)
+  # -----------------------------------------------------------------
+  style:
+    name: Check Style & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        # -D warnings ensures the CI fails if any warnings are found, keeping code clean
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # -----------------------------------------------------------------
+  # Job 2: Cross-platform Testing (Linux, Windows, macOS)
+  # -----------------------------------------------------------------
+  test:
+    name: Test on ${{ matrix.os }}
+    needs: style # Optional: only run tests if style checks pass to save resources
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # If one OS fails, continue testing others to gather full results
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check package compilation
+        run: cargo check --verbose
+
+      - name: Run tests
+        # This executes both unit tests and integration tests (e.g., tests/rton_yaml_test.rs)
+        run: cargo test --verbose
